@@ -23,4 +23,5 @@ public class TimeEntity {
 
     @Column(nullable = false)
     private LocalTime time;
+  
 }
