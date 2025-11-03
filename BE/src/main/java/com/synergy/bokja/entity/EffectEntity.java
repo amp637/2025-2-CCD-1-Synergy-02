@@ -8,19 +8,16 @@ import lombok.*;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "user_medicine_item_table")
-public class UserMedicineItemEntity {
+@Table(name = "effect_table")
+public class EffectEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long umino;
+    private Long efno;
 
-    @Column(nullable = false)
-    private Long umno;
-
-    @Column(nullable = false)
-    private Long mdno;
+    @Column(nullable = false, length = 50)
+    private String name;
 
     @Column(columnDefinition = "TEXT")
-    private String description;
+    private String image;
 }
