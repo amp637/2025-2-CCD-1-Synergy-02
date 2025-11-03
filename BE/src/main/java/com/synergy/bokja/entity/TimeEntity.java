@@ -3,7 +3,10 @@ package com.synergy.bokja.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
-@Getter @Setter
+import java.time.LocalTime;
+
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -18,6 +21,7 @@ public class TimeEntity {
     @Column(nullable = false, length = 20)
     private String type;
 
-    @Column(nullable = false, length = 10)
-    private String time;
+    @Column(nullable = false)
+    private LocalTime time;
+  
 }

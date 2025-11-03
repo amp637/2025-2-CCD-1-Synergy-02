@@ -3,7 +3,8 @@ package com.synergy.bokja.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
-@Getter @Setter
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -15,9 +16,9 @@ public class EffectEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long efno;
 
-    @Column(nullable = false, length = 50)
+    @Column(nullable = false, length = 20)
     private String name;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String image;
 }
