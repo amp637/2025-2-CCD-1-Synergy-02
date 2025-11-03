@@ -15,8 +15,9 @@ public class QuizOptionEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long qono;
 
-    @Column(nullable = false)
-    private Long qno;
+    @ManyToOne
+    @JoinColumn(name = "qno")
+    private QuizEntity quiz;
 
     @Column(nullable = false, length = 200)
     private String content;

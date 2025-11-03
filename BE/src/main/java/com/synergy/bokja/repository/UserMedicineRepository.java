@@ -3,8 +3,10 @@ package com.synergy.bokja.repository;
 import com.synergy.bokja.entity.UserMedicineEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-public interface UserMedicineRepository extends JpaRepository<UserMedicineEntity, Long> {
+import java.util.List;
 
+public interface UserMedicineRepository extends JpaRepository<UserMedicineEntity, Long> {
     UserMedicineEntity findByUmno(Long umno);
-    UserMedicineEntity findByUno(Long uno);
+    List<UserMedicineEntity> findAllByUser_Uno(Long uno);
+    UserMedicineEntity findByUser_Uno(Long uno);
 }

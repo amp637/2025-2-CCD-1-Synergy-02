@@ -3,13 +3,14 @@ package com.synergy.bokja.controller;
 import com.synergy.bokja.auth.JwtTokenProvider;
 import com.synergy.bokja.dto.MedicationTimePresetResponseDTO;
 import com.synergy.bokja.dto.SideEffectPresetResponseDTO;
+import com.synergy.bokja.response.BaseResponse;
 import com.synergy.bokja.service.PresetService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
-import com.synergy.bokja.response.BaseResponse;
+
 
 @RestController
 @RequiredArgsConstructor

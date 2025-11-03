@@ -3,6 +3,8 @@ package com.synergy.bokja.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDate;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -16,21 +18,22 @@ public class CycleEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long cyno;
 
-    @Column(nullable = false)
-    private Long umno;
+    @ManyToOne
+    @JoinColumn(name = "umno")
+    private UserMedicineEntity userMedicine;
 
-    @Column(nullable = false)
-    private int total_cycle;
+    @Column(nullable = false, name = "total_cycle")
+    private int totalCycle;
 
-    @Column
-    private Integer cur_cycle;
+    @Column(name = "cur_cycle")
+    private Integer curCycle;
 
-    @Column
-    private Integer save_cycle;
+    @Column(name = "save_cycle")
+    private Integer saveCycle;
 
-    @Column(nullable = false)
-    private java.sql.Date start_date;
+    @Column(nullable = false, name = "start_date")
+    private LocalDate startDate;
 
-    @Column(nullable = false)
-    private java.sql.Date end_date;
+    @Column(nullable = false, name = "end_date")
+    private LocalDate endDate;
 }

@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.sql.Timestamp;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -21,15 +22,17 @@ public class DescriptionEntity {
     @Column(columnDefinition = "TEXT", nullable = false)
     private String description;
 
-    @Column(nullable = false)
-    private Long umno; // FK → user_medicine_table
+    @ManyToOne
+    @JoinColumn(name = "umno")
+    private UserMedicineEntity userMedicine;
 
     @Column(nullable = false)
-    private Timestamp created_at;
+    private LocalDateTime created_at;
 
     @Column
-    private Timestamp updated_at;
+    private LocalDateTime updated_at;
 
-    @Column(nullable = false)
-    private Long enno; // FK → event_name_table
+    @ManyToOne
+    @JoinColumn(name = "enno")
+    private EventNameEntity eventName;
 }

@@ -6,5 +6,5 @@ import java.util.List;
 
 public interface UserMedicineItemRepository extends JpaRepository<UserMedicineItemEntity, Long> {
 
-    List<UserMedicineItemEntity> findAllByUmno(Long umno);
+    List<UserMedicineItemEntity> findAllByUserMedicine_Umno(Long umno);
 }

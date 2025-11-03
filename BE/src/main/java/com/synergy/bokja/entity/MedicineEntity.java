@@ -10,21 +10,20 @@ public class MedicineEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "mdno")
     private Long mdno;
 
-    @Column(name = "name", nullable = false, length = 40)
+    @Column(nullable = false, length = 40)
     private String name;
 
-    @Column(name = "classification", nullable = false, length = 20)
+    @Column(nullable = false, length = 20)
     private String classification;
 
-    @Column(name = "description", nullable = false, columnDefinition = "TEXT")
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String description;
 
-    @Column(name = "image", nullable = false, columnDefinition = "TEXT")
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String image;
 
-    @Column(name = "information", columnDefinition = "TEXT")
+    @Column(columnDefinition = "TEXT")
     private String information;
 }

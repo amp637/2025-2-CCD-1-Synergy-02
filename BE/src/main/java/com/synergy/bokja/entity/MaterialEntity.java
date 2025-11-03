@@ -18,6 +18,6 @@ public class MaterialEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long mtno;
 
-    @Column(nullable = false, length = 255)
+    @Column(nullable = false, length = 20)
     private String name;
 }
