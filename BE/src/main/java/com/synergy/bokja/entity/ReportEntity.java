@@ -16,17 +16,21 @@ public class ReportEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long rno;
 
-    @Column(nullable = false)
-    private Long umno;
+    @ManyToOne
+    @JoinColumn(name = "umno")
+    private UserMedicineEntity userMedicine;
 
-    @Column(nullable = false)
-    private Long cdno;
+    @ManyToOne
+    @JoinColumn(name = "cdno")
+    private ConditionEntity condition;
 
-    @Column(nullable = false)
-    private Long cyno;
+    @ManyToOne
+    @JoinColumn(name = "cyno")
+    private CycleEntity cycle;
 
-    @Column(nullable = false)
-    private Long umino;
+    @ManyToOne
+    @JoinColumn(name = "umino")
+    private UserMedicineItemEntity userMedicineItem;
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String description;

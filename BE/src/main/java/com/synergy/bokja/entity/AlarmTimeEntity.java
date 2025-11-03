@@ -3,26 +3,24 @@ package com.synergy.bokja.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
-@Getter @Setter
+@Setter
+@Getter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "user_medicine_item_table")
-public class UserMedicineItemEntity {
+@Table(name = "alarm_time_table")
+public class AlarmTimeEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long umino;
+    private Long atno;
 
     @ManyToOne
     @JoinColumn(name = "umno")
     private UserMedicineEntity userMedicine;
 
     @ManyToOne
-    @JoinColumn(name = "mdno")
-    private MedicineEntity medicine;
-
-    @Column(columnDefinition = "TEXT")
-    private String description;
+    @JoinColumn(name = "tno")
+    private TimeEntity time;
 }

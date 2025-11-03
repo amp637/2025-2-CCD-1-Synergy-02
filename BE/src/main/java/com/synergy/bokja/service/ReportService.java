@@ -25,7 +25,7 @@ public class ReportService {
 
     /** uno → umno 조회 */
     public Long findUmno(Long uno) {
-        UserMedicineEntity userMedicine = userMedicineRepository.findByUno(uno);
+        UserMedicineEntity userMedicine = userMedicineRepository.findByUser_Uno(uno);
         if (userMedicine == null)
             throw new IllegalArgumentException("사용자의 복약 정보가 존재하지 않습니다.");
         return userMedicine.getUmno();
@@ -44,17 +44,17 @@ public class ReportService {
 
     /** [1] 리포트 목록 조회 */
     public ReportListResponseDTO getUserReports(Long umno) {
-        List<ReportEntity> reports = reportRepository.findAllByUmno(umno);
+        List<ReportEntity> reports = reportRepository.findAllByUserMedicine_Umno(umno);
 
         List<ReportItemDTO> reportList = reports.stream().map(r -> {
-            CycleEntity cycle = cycleRepository.findByCyno(r.getCyno());
-            UserMedicineEntity med = userMedicineRepository.findByUmno(r.getUmno());
+            CycleEntity cycle = cycleRepository.findByCyno(r.getCycle().getCyno());
+            UserMedicineEntity med = userMedicineRepository.findByUmno(r.getUserMedicine().getUmno());
             return new ReportItemDTO(
                     r.getRno(),
                     med.getHospital(),
                     med.getCategory(),
-                    cycle.getStart_date().toString(),
-                    cycle.getEnd_date().toString()
+                    cycle.getStartDate().toString(),
+                    cycle.getEndDate().toString()
             );
         }).collect(Collectors.toList());
 
@@ -66,11 +66,11 @@ public class ReportService {
         ReportEntity report = reportRepository.findByRno(rno)
                 .orElseThrow(() -> new IllegalArgumentException("리포트가 존재하지 않습니다."));
 
-        UserMedicineEntity med = userMedicineRepository.findByUmno(report.getUmno());
-        CycleEntity cycle = cycleRepository.findByCyno(report.getCyno());
+        UserMedicineEntity med = userMedicineRepository.findByUmno(report.getUserMedicine().getUmno());
+        CycleEntity cycle = cycleRepository.findByCyno(report.getCycle().getCyno());
 
-        String start = cycle.getStart_date().toString();
-        String end = cycle.getEnd_date().toString();
+        String start = cycle.getStartDate().toString();
+        String end = cycle.getEndDate().toString();
 
         List<ColorDTO> colors = daysBetween(start, end).stream()
                 .map(d -> new ColorDTO(d, "g")) // 기본 green
@@ -92,13 +92,13 @@ public class ReportService {
         ReportEntity report = reportRepository.findByRno(rno)
                 .orElseThrow(() -> new IllegalArgumentException("리포트가 존재하지 않습니다."));
 
-        UserMedicineEntity userMedicine = userMedicineRepository.findByUmno(report.getUmno());
-        CycleEntity cycle = cycleRepository.findByCyno(report.getCyno());
-        List<UserMedicineItemEntity> items = userMedicineItemRepository.findAllByUmno(report.getUmno());
+        UserMedicineEntity userMedicine = userMedicineRepository.findByUmno(report.getUserMedicine().getUmno());
+        CycleEntity cycle = cycleRepository.findByCyno(report.getCycle().getCyno());
+        List<UserMedicineItemEntity> items = userMedicineItemRepository.findAllByUserMedicine_Umno(report.getUserMedicine().getUmno());
 
         // 약품 상세 정보
         List<MedicineDTO> medicineList = items.stream().map(i -> {
-            MedicineEntity med = medicineRepository.findByMdno(i.getMdno());
+            MedicineEntity med = medicineRepository.findByMdno(i.getMedicine().getMdno());
             return new MedicineDTO(
                     med.getMdno(),
                     med.getName(),
@@ -111,19 +111,19 @@ public class ReportService {
         // 복약 주기 정보
         List<ReportCycleDTO> cycleList = List.of(
                 new ReportCycleDTO(
-                        cycle.getStart_date().toString(),
-                        cycle.getEnd_date().toString(),
-                        cycle.getTotal_cycle(),
-                        cycle.getCur_cycle(),
-                        cycle.getSave_cycle()
+                        cycle.getStartDate().toString(),
+                        cycle.getEndDate().toString(),
+                        cycle.getTotalCycle(),
+                        cycle.getCurCycle(),
+                        cycle.getSaveCycle()
                 )
         );
 
         // 부작용 기록 통계 (주차별 집계)
         List<ReportEffectWeekDTO> effects = buildWeeklyEffectStats(
-                userMedicine.getUno(),
-                cycle.getStart_date(),
-                cycle.getEnd_date()
+                userMedicine.getUser().getUno(),
+                cycle.getStartDate(),
+                cycle.getEndDate()
         );
 
         // 결과 조립
@@ -140,11 +140,11 @@ public class ReportService {
     }
 
     /** 주차별 부작용 통계 생성 */
-    private List<ReportEffectWeekDTO> buildWeeklyEffectStats(Long uno, java.sql.Date startDate, java.sql.Date endDate) {
+    private List<ReportEffectWeekDTO> buildWeeklyEffectStats(Long uno, LocalDate startDate, LocalDate endDate) {
         List<ReportEffectWeekDTO> result = new ArrayList<>();
 
-        LocalDate start = startDate.toLocalDate();
-        LocalDate end = endDate.toLocalDate();
+        LocalDate start = startDate;
+        LocalDate end = endDate;
 
         // 전체 기간의 주 단위 구간 생성
         int weekIndex = 1;
@@ -156,11 +156,11 @@ public class ReportService {
             Timestamp endTs = Timestamp.valueOf(wEnd.atTime(LocalTime.MAX));
 
             // 해당 주의 부작용 기록 조회
-            List<ConditionEntity> weekConditions = conditionRepository.findAllByUnoAndTimeBetween(uno, startTs, endTs);
+            List<ConditionEntity> weekConditions = conditionRepository.findAllByUser_UnoAndTimeBetween(uno, startTs, endTs);
 
             // efno별 count 집계
             Map<Long, Long> counts = weekConditions.stream()
-                    .collect(Collectors.groupingBy(ConditionEntity::getEfno, Collectors.counting()));
+                    .collect(Collectors.groupingBy(condition -> condition.getEffect().getEfno(), Collectors.counting()));
 
             // DTO 리스트 변환
             List<ReportEffectItemDTO> weekEffects = counts.entrySet().stream().map(e -> {

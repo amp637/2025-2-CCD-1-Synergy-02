@@ -3,6 +3,8 @@ package com.synergy.bokja.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDateTime;
+
 @Getter @Setter
 @NoArgsConstructor @AllArgsConstructor @Builder
 @Entity @Table(name = "condition_table")
@@ -13,11 +15,13 @@ public class ConditionEntity {
     private Long cdno;
 
     @Column(nullable = false)
-    private java.sql.Timestamp time; // 발생 시각
+    private LocalDateTime time;
 
-    @Column(nullable = false)
-    private Long uno; // 사용자 ID
+    @ManyToOne
+    @JoinColumn(name = "uno", nullable = false)
+    private UserEntity user;
 
-    @Column(nullable = false)
-    private Long efno; // 부작용 ID (effect_table)
+    @ManyToOne
+    @JoinColumn(name = "efno", nullable = false)
+    private EffectEntity effect;
 }

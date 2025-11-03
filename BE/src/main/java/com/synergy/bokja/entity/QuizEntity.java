@@ -16,8 +16,9 @@ public class QuizEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long qno;
 
-    @Column(nullable = false)
-    private Long umno;               // FK → user_medicine_table(umno)
+    @ManyToOne
+    @JoinColumn(name = "umno")
+    private UserMedicineEntity userMedicine;
 
     @Column(length = 20)
     private String type;

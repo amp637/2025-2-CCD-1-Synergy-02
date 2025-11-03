@@ -53,12 +53,12 @@ public class MedicationService {
         String initialCategory = "미분류";
 
         UserMedicineEntity um = new UserMedicineEntity();
-        um.setUno(uno);
-        um.setAcno(acno);
+        um.getUser().setUno(uno);
+        um.getAlarmComb().setAcno(acno);
         um.setHospital(ext.hospital());
-        um.setCategory(initialCategory);   // ✅ NOT NULL 방지
+        um.setCategory(initialCategory);   // NOT NULL 방지
         um.setTaken(0);
-        um.setCreated_at(now);             // ✅ created_at 세팅
+        um.setCreated_at(now);             // created_at 세팅
 
         userMedicineRepository.save(um);   // umno 발급
 
@@ -66,8 +66,8 @@ public class MedicationService {
         for (ExtractedItem it : ext.items()) {
             Long mdno = requireMedicine(it.name());
             UserMedicineItemEntity umi = new UserMedicineItemEntity();
-            umi.setUmno(um.getUmno());
-            umi.setMdno(mdno);
+            umi.getUserMedicine().setUmno(um.getUmno());
+            umi.getMedicine().setMdno(mdno);
             umi.setDescription("각 약품설명(복약안내, 주의사항)");
             userMedicineItemRepository.save(umi);
         }
@@ -86,12 +86,12 @@ public class MedicationService {
 
         LocalDate today = LocalDate.now();
         CycleEntity cycle = new CycleEntity();
-        cycle.setUmno(um.getUmno());
-        cycle.setTotal_cycle(safeMul(repTotal, repDays));          // ✅ 6 * 3 = 18
-        cycle.setCur_cycle(0);
-        cycle.setSave_cycle(0);
-        cycle.setStart_date(Date.valueOf(today));
-        cycle.setEnd_date(Date.valueOf(today.plusDays(repDays - 1)));
+        cycle.getUserMedicine().setUmno(um.getUmno());
+        cycle.setTotalCycle(safeMul(repTotal, repDays));
+        cycle.setCurCycle(0);
+        cycle.setSaveCycle(0);
+        cycle.setStartDate(Date.valueOf(today).toLocalDate());
+        cycle.setEndDate(Date.valueOf(today.plusDays(repDays - 1)).toLocalDate());
         cycleRepository.save(cycle);
 
         // 6) (하드코딩) LLM 결과 반영: category / description / quiz
@@ -176,18 +176,18 @@ public class MedicationService {
 
         // --- alarm ---
         DescriptionEntity alarm = new DescriptionEntity();
-        alarm.setUmno(umno);
-        alarm.setEnno(ENNO_ALARM);                  // ✅ 고정값 1
+        alarm.getUserMedicine().setUmno(umno);
+        alarm.getEventName().setEnno(ENNO_ALARM);                  // ✅ 고정값 1
         alarm.setDescription("복약알림예시스크립트입니다.");
-        alarm.setCreated_at(now);
+        alarm.setCreated_at(now.toLocalDateTime());
         descriptionRepository.save(alarm);
 
         // --- call ---
         DescriptionEntity call = new DescriptionEntity();
-        call.setUmno(umno);
-        call.setEnno(ENNO_CALL);                    // ✅ 고정값 3
+        call.getUserMedicine().setUmno(umno);
+        call.getEventName().setEnno(ENNO_CALL);                    // ✅ 고정값 3
         call.setDescription("AI전화알림예시스크립트입니다.");
-        call.setCreated_at(now);
+        call.setCreated_at(now.toLocalDateTime());
         descriptionRepository.save(call);
 
         // 퀴즈 생성 로직은 그대로
@@ -212,7 +212,7 @@ public class MedicationService {
     /** 보기 "1번"~"4번" 생성, 하나만 랜덤 정답 */
     private void createQuizWithRandomAnswer(Long umno, String question) {
         QuizEntity quiz = new QuizEntity();
-        quiz.setUmno(umno);
+        quiz.getUserMedicine().setUmno(umno);
         quiz.setQuestion(question);
         quiz.setType(resolveQuizTypeStrict(question)); // ✅ 병용주의/약효분류만
         quizRepository.save(quiz);
@@ -222,7 +222,7 @@ public class MedicationService {
 
         for (int i = 0; i < options.size(); i++) {
             QuizOptionEntity opt = new QuizOptionEntity();
-            opt.setQno(quiz.getQno());
+            opt.getQuiz().setQno(quiz.getQno());
             opt.setContent(options.get(i));
             opt.setIsCorrect(i == correctIndex);
             quizOptionRepository.save(opt);

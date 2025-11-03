@@ -17,8 +17,9 @@ public class UserMedicineEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long umno;
 
-    @Column(nullable = false)
-    private Long uno;
+    @ManyToOne
+    @JoinColumn(name = "uno")
+    private UserEntity user;
 
     @Column(nullable = false, length = 20)
     private String category;
@@ -29,8 +30,9 @@ public class UserMedicineEntity {
     @Column(nullable = false, length = 40)
     private String hospital;
 
-    @Column(nullable = false)
-    private Long acno; // FK → alarm_comb_table
+    @ManyToOne
+    @JoinColumn(name = "acno")
+    private AlarmCombEntity alarmComb;
 
     @Column(nullable = false)
     private int taken;
