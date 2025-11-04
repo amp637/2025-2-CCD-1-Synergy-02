@@ -89,7 +89,7 @@ export default function Home() {
               <TouchableOpacity style={styles.actionButton} onPress={handlePrescriptionPress}>
                 <View style={styles.actionButtonIcon}>
                   <Image 
-                    source={require('../../assets/icons/Home/처방전아이콘.png')}
+                    source={require('../../assets/images/Home/처방전아이콘.png')}
                     style={styles.icon}
                     resizeMode="contain"
                   />
@@ -106,7 +106,7 @@ export default function Home() {
               >
                 <View style={styles.actionButtonIcon}>
                   <Image 
-                    source={require('../../assets/icons/Home/약봉투아이콘.png')}
+                    source={require('../../assets/images/Home/약봉투아이콘.png')}
                     style={styles.icon}
                     resizeMode="contain"
                   />
@@ -122,7 +122,7 @@ export default function Home() {
           <TouchableOpacity style={styles.infoButton} onPress={handleEditInfoPress}>
             <View style={styles.infoButtonIcon}>
               <Image 
-                source={require('../../assets/icons/Home/내정보수정아이콘.png')}
+                source={require('../../assets/images/Home/내정보수정아이콘.png')}
                 style={styles.infoIcon}
                 resizeMode="contain"
               />
@@ -159,7 +159,7 @@ export default function Home() {
               style={styles.emptyIcon}
             >
               <Image 
-                source={require('../../assets/icons/Home/약아이콘.png')}
+                source={require('../../assets/images/Home/약아이콘.png')}
                 style={styles.emptyIconImage}
                 resizeMode="contain"
               />

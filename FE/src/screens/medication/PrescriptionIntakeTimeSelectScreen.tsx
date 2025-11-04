@@ -23,10 +23,10 @@ interface TimeOption {
 }
 
 const timeOptions: TimeOption[] = [
-  { id: 'breakfast', label: '아침', icon: require('../../../assets/icons/PrescriptionIntakeTimeSelectScreen/아침.png') },
-  { id: 'lunch', label: '점심', icon: require('../../../assets/icons/PrescriptionIntakeTimeSelectScreen/점심.png') },
-  { id: 'dinner', label: '저녁', icon: require('../../../assets/icons/PrescriptionIntakeTimeSelectScreen/저녁.png') },
-  { id: 'bedtime', label: '취침 전', icon: require('../../../assets/icons/PrescriptionIntakeTimeSelectScreen/취침전.png') },
+  { id: 'breakfast', label: '아침', icon: require('../../../assets/images/PrescriptionIntakeTimeSelectScreen/아침.png') },
+  { id: 'lunch', label: '점심', icon: require('../../../assets/images/PrescriptionIntakeTimeSelectScreen/점심.png') },
+  { id: 'dinner', label: '저녁', icon: require('../../../assets/images/PrescriptionIntakeTimeSelectScreen/저녁.png') },
+  { id: 'bedtime', label: '취침 전', icon: require('../../../assets/images/PrescriptionIntakeTimeSelectScreen/취침전.png') },
 ];
 
 export default function PrescriptionIntakeTimeSelectScreen() {

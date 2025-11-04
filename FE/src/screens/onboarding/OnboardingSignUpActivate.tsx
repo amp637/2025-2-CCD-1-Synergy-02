@@ -23,7 +23,7 @@ export default function OnboardingSignUpActivate() {
       <StatusBar style="dark" />
       <View style={styles.card}>
         <Image 
-          source={require('../../../assets/icons/OnboardingSignUpActivate/복자 로고 2.png')}
+          source={require('../../../assets/images/OnboardingSignUpActivate/복자 로고 2.png')}
           style={styles.logo}
           resizeMode="contain"
         />

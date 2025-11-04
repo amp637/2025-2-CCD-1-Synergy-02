@@ -19,7 +19,7 @@ export default function OnboardingWelcomeScreen() {
       <StatusBar style="dark" />
       <View style={styles.contentContainer}>
         <Image 
-          source={require('../../../assets/icons/main_icon/icon.png')}
+          source={require('../../../assets/images/main_icon/icon.png')}
           style={styles.logo}
           resizeMode="contain"
         />

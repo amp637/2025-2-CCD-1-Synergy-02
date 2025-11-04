@@ -180,7 +180,7 @@ export default function PrescriptionDetailScreen() {
               onPress={handleCategoryEditPress}
             >
               <Image 
-                source={require('../../../assets/icons/PrescriptionAnalysisResultScreen/수정.png')}
+                source={require('../../../assets/images/PrescriptionAnalysisResultScreen/수정.png')}
                 style={styles.categoryButtonIcon}
                 resizeMode="contain"
               />
@@ -233,7 +233,7 @@ export default function PrescriptionDetailScreen() {
                       <View style={styles.warningBox}>
                         <View style={styles.warningHeader}>
                           <Image 
-                            source={require('../../../assets/icons/PrescriptionAnalysisResultScreen/병용섭취주의.png')}
+                            source={require('../../../assets/images/PrescriptionAnalysisResultScreen/병용섭취주의.png')}
                             style={styles.warningIcon}
                             resizeMode="contain"
                           />
