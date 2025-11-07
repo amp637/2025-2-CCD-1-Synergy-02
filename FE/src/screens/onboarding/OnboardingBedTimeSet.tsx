@@ -21,7 +21,7 @@ export default function OnboardingBedTimeSet({ onComplete }: OnboardingBedTimeSe
   const isTablet = width > 600;
   const MAX_WIDTH = isTablet ? 420 : 360;
 
-  const [selectedTime, setSelectedTime] = useState<number | null>(null);
+  const [selectedTime, setSelectedTime] = useState<number | null>(19); // Figma 디자인에서 19시가 선택된 상태
 
   const isNextButtonActive = selectedTime !== null;
 
@@ -151,22 +151,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between' as any,
   },
   timeButton: {
-    width: 164, // Increased width
-    height: 144, // Increased height
+    width: 148,
+    height: 128,
     borderRadius: 25,
-    borderWidth: 1,
-    borderColor: '#ffcc02', // Unselected border color
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
-    marginBottom: 24, // Vertical spacing
+    marginBottom: 24,
   },
   timeButtonSelected: {
-    backgroundColor: '#60584d', // Selected background color
-    borderColor: '#60584d',
+    backgroundColor: '#60584d',
   },
   timeButtonUnselected: {
-    backgroundColor: '#ffcc02', // Unselected background color
-    borderColor: '#ffcc02',
+    backgroundColor: '#ffcc02',
   },
   timeButtonText: {
     fontSize: 48,
@@ -181,14 +177,15 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     position: 'absolute' as any,
-    left: 16,
-    right: 16,
-    bottom: 36,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 16,
+    paddingBottom: 36,
     alignItems: 'center' as any,
   },
   nextButton: {
-    width: '100%',
-    maxWidth: 360,
+    width: 320,
     height: 66,
     borderRadius: 200,
     justifyContent: 'center' as any,

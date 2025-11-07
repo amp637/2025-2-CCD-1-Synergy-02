@@ -169,8 +169,8 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   actionButton: {
-    width: 172,
-    height: 172,
+    width: 148,
+    height: 148,
     borderRadius: 16,
     overflow: 'hidden' as any,
   },
@@ -182,17 +182,17 @@ const styles = StyleSheet.create({
     paddingBottom: 21,
   },
   iconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     marginBottom: 18,
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
   },
   iconImage: {
-    width: 48,
-    height: 48,
+    width: 40,
+    height: 40,
   },
   actionButtonText: {
     fontSize: 24,

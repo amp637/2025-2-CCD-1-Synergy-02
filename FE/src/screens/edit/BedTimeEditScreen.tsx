@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
-const timeOptions = [19, 20, 21, 22, 23, 24];
+const timeOptions = [7, 8, 9, 10, 11, 12];
 
 interface BedTimeEditScreenProps {
   onComplete?: () => void;
@@ -21,7 +21,7 @@ export default function BedTimeEditScreen({ onComplete }: BedTimeEditScreenProps
   const isTablet = width > 600;
   const MAX_WIDTH = isTablet ? 420 : 360;
 
-  const [selectedTime, setSelectedTime] = useState<number | null>(22); // 기존 시간으로 초기화
+  const [selectedTime, setSelectedTime] = useState<number | null>(7); // 기존 시간으로 초기화
 
   const isNextButtonActive = selectedTime !== null;
 
@@ -51,7 +51,7 @@ export default function BedTimeEditScreen({ onComplete }: BedTimeEditScreenProps
       >
         <View style={[styles.pageWrapper, { maxWidth: MAX_WIDTH }]}>
           {/* 제목 */}
-          <Text style={styles.title}>취침 전 약 시간을 선택하세요.</Text>
+          <Text style={styles.title}>취침 시간을 선택하세요.</Text>
 
           {/* 시간 버튼 그리드 */}
           <View style={styles.timeButtonsContainer}>
@@ -151,22 +151,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between' as any,
   },
   timeButton: {
-    width: 164,
-    height: 144,
+    width: 148,
+    height: 128,
     borderRadius: 25,
-    borderWidth: 1,
-    borderColor: '#ffcc02',
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
     marginBottom: 24,
   },
   timeButtonSelected: {
     backgroundColor: '#60584d',
-    borderColor: '#60584d',
   },
   timeButtonUnselected: {
     backgroundColor: '#ffcc02',
-    borderColor: '#ffcc02',
   },
   timeButtonText: {
     fontSize: 48,
@@ -181,14 +177,15 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     position: 'absolute' as any,
-    left: 16,
-    right: 16,
-    bottom: 36,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 16,
+    paddingBottom: 36,
     alignItems: 'center' as any,
   },
   nextButton: {
-    width: '100%',
-    maxWidth: 360,
+    width: 320,
     height: 66,
     borderRadius: 200,
     justifyContent: 'center' as any,
