@@ -9,6 +9,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { scale } from '../../utils/scale';
 
 interface OnboardingMorningTimeSetProps {
   onNext?: () => void;
@@ -18,7 +19,7 @@ export default function OnboardingMorningTimeSet({ onNext }: OnboardingMorningTi
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const { width } = useWindowDimensions();
   const isTablet = width > 600;
-  const MAX_WIDTH = isTablet ? 420 : 360;
+  const MAX_WIDTH = scale(isTablet ? 420 : 360);
 
   const times = ['6시', '7시', '8시', '9시', '10시', '11시'];
 
@@ -104,24 +105,24 @@ const styles = StyleSheet.create({
   },
   header: {
     width: '100%',
-    height: 56,
+    height: scale(56),
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
     backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
+    borderBottomWidth: scale(1),
     borderBottomColor: '#EAEAEA',
   },
   headerText: {
-    fontSize: 27,
+    fontSize: scale(27),
     fontWeight: '700' as any,
     color: '#1A1A1A',
-    lineHeight: 32.4,
+    lineHeight: scale(32.4),
     textAlign: 'center',
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 48,
-    paddingBottom: 100,
+    paddingHorizontal: scale(16),
+    paddingTop: scale(48),
+    paddingBottom: scale(100),
     alignItems: 'center' as any,
     flexGrow: 1,
   },
@@ -130,10 +131,10 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   title: {
-    fontSize: 24,
+    fontSize: scale(24),
     fontWeight: '700' as any,
     color: '#1e2939',
-    marginBottom: 24,
+    marginBottom: scale(24),
     textAlign: 'left',
   },
   timeButtonsContainer: {
@@ -143,14 +144,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between' as any,
   },
   timeButton: {
-    width: 164,
-    height: 144,
-    borderRadius: 25,
-    borderWidth: 1,
+    width: '48%', // 2열 그리드 유지 - scale 제거
+    height: scale(144), // height는 scale 처리
+    borderRadius: scale(25),
+    borderWidth: scale(1),
     borderColor: '#ffcc02',
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
-    marginBottom: 24,
+    marginBottom: scale(24),
   },
   timeButtonSelected: {
     backgroundColor: '#60584d',
@@ -161,9 +162,9 @@ const styles = StyleSheet.create({
     borderColor: '#ffcc02',
   },
   timeButtonText: {
-    fontSize: 48,
+    fontSize: scale(48),
     fontWeight: '700' as any,
-    lineHeight: 57.6,
+    lineHeight: scale(57.6),
   },
   timeButtonTextSelected: {
     color: '#ffffff',
@@ -173,16 +174,16 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     position: 'absolute' as any,
-    left: 16,
-    right: 16,
-    bottom: 36,
+    left: scale(16),
+    right: scale(16),
+    bottom: scale(36),
     alignItems: 'center' as any,
   },
   nextButton: {
     width: '100%',
-    maxWidth: 360,
-    height: 66,
-    borderRadius: 200,
+    maxWidth: scale(360),
+    height: scale(66),
+    borderRadius: scale(200),
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
   },
@@ -193,9 +194,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#c4bcb1',
   },
   nextButtonText: {
-    fontSize: 27,
+    fontSize: scale(27),
     fontWeight: '700' as any,
     color: '#ffffff',
-    lineHeight: 32.4,
+    lineHeight: scale(32.4),
+  },
+  nextButtonTextActive: {
+    color: '#ffffff',
+  },
+  nextButtonTextInactive: {
+    color: '#ffffff',
   },
 });

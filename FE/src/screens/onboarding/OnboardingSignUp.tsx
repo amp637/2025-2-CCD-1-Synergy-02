@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import Svg, { Path, Rect } from 'react-native-svg';
+import { scale } from '../../utils/scale';
 
 interface OnboardingSignUpProps {
   onSignUpComplete?: () => void;
@@ -27,7 +28,7 @@ export default function OnboardingSignUp({ onSignUpComplete }: OnboardingSignUpP
   const [selectedDay, setSelectedDay] = useState(new Date().getDate());
   const { width } = useWindowDimensions();
   const isTablet = width > 600;
-  const MAX_WIDTH = isTablet ? 420 : 360;
+  const MAX_WIDTH = scale(isTablet ? 420 : 360);
 
   // 연도 목록 생성 (현재 년도부터 100년 전까지)
   const currentYear = new Date().getFullYear();
@@ -146,7 +147,7 @@ export default function OnboardingSignUp({ onSignUpComplete }: OnboardingSignUpP
                 onPress={handleDatePickerPress}
                 activeOpacity={0.8}
               >
-                <Svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                <Svg width={scale(28)} height={scale(28)} viewBox="0 0 24 24" fill="none">
                   <Rect x="3" y="6" width="18" height="15" rx="2" stroke="#ffffff" strokeWidth="2" strokeLinejoin="round"/>
                   <Path d="M3 10H21" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   <Path d="M7 3V6" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -339,8 +340,8 @@ const styles = StyleSheet.create({
   },
   header: {
     width: '100%',
-    height: 56,
-    borderBottomWidth: 1,
+    height: scale(56),
+    borderBottomWidth: scale(1),
     borderBottomColor: '#EAEAEA',
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
@@ -348,15 +349,15 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontWeight: '700' as any,
-    fontSize: 27,
+    fontSize: scale(27),
     color: '#1A1A1A',
-    lineHeight: 32.4,
+    lineHeight: scale(32.4),
     textAlign: 'center',
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 48,
-    paddingBottom: 100,
+    paddingHorizontal: scale(16),
+    paddingTop: scale(48),
+    paddingBottom: scale(100),
     alignItems: 'center' as any,
   },
   pageWrapper: {
@@ -365,55 +366,55 @@ const styles = StyleSheet.create({
   },
   inputSection: {
     width: '100%',
-    marginBottom: 24,
+    marginBottom: scale(24),
   },
   headingContainer: {
     width: '100%',
-    height: 30,
-    marginBottom: 6,
+    height: scale(30),
+    marginBottom: scale(6),
   },
   headingText: {
-    fontSize: 24,
+    fontSize: scale(24),
     fontWeight: '700' as any,
     color: '#1e2939',
-    lineHeight: 28.8,
+    lineHeight: scale(28.8),
     textAlign: 'left',
   },
   birthdateInputContainer: {
     flexDirection: 'row' as any,
     alignItems: 'center' as any,
-    gap: 12,
+    gap: scale(12),
   },
   textInput: {
     flex: 1,
-    height: 70,
+    height: scale(70),
     backgroundColor: '#ffffff',
-    borderWidth: 1,
+    borderWidth: scale(1),
     borderColor: '#e5e7eb',
-    borderRadius: 14,
+    borderRadius: scale(14),
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
   },
   inputText: {
-    fontSize: 24,
+    fontSize: scale(24),
     fontWeight: '700' as any,
     color: '#99a1af',
-    lineHeight: 28.8,
+    lineHeight: scale(28.8),
     textAlign: 'center',
     width: '100%',
-    paddingHorizontal: 16,
+    paddingHorizontal: scale(16),
   },
   calendarButton: {
-    width: 70,
-    height: 70,
+    width: scale(70),
+    height: scale(70),
     backgroundColor: '#60584d',
-    borderRadius: 14,
+    borderRadius: scale(14),
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: scale(4),
     elevation: 3,
   },
   modalOverlay: {
@@ -424,35 +425,35 @@ const styles = StyleSheet.create({
   },
   datePickerContainer: {
     width: '92%',
-    maxWidth: 400,
+    maxWidth: scale(400),
     backgroundColor: '#ffffff',
-    borderRadius: 24,
-    paddingVertical: 24,
-    paddingHorizontal: 20,
+    borderRadius: scale(24),
+    paddingVertical: scale(24),
+    paddingHorizontal: scale(20),
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
-    shadowRadius: 12,
+    shadowRadius: scale(12),
     elevation: 8,
   },
   datePickerHeader: {
     flexDirection: 'row' as any,
     justifyContent: 'space-between' as any,
     alignItems: 'center' as any,
-    marginBottom: 20,
+    marginBottom: scale(20),
   },
   datePickerTitle: {
-    fontSize: 22,
+    fontSize: scale(22),
     fontWeight: '700' as any,
     color: '#1e2939',
-    letterSpacing: -0.5,
+    letterSpacing: scale(-0.5),
   },
   closeButton: {
-    fontSize: 24,
+    fontSize: scale(24),
     color: '#99a1af',
     fontWeight: '400' as any,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: scale(8),
+    paddingVertical: scale(4),
   },
   datePickerContent: {
     width: '100%',
@@ -460,40 +461,40 @@ const styles = StyleSheet.create({
   pickerRow: {
     flexDirection: 'row' as any,
     justifyContent: 'space-between' as any,
-    gap: 8,
-    marginBottom: 20,
+    gap: scale(8),
+    marginBottom: scale(20),
   },
   pickerColumn: {
     flex: 1,
   },
   pickerLabel: {
-    fontSize: 15,
+    fontSize: scale(15),
     fontWeight: '700' as any,
     color: '#1e2939',
     textAlign: 'center' as any,
-    marginBottom: 10,
+    marginBottom: scale(10),
   },
   pickerScroll: {
-    maxHeight: 280,
-    borderWidth: 1,
+    maxHeight: scale(280),
+    borderWidth: scale(1),
     borderColor: '#e5e7eb',
-    borderRadius: 14,
+    borderRadius: scale(14),
     backgroundColor: '#f9fafb',
   },
   pickerScrollContent: {
-    paddingVertical: 4,
+    paddingVertical: scale(4),
   },
   pickerItem: {
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
+    paddingVertical: scale(14),
+    paddingHorizontal: scale(12),
+    borderBottomWidth: scale(1),
     borderBottomColor: '#f0f0f0',
   },
   pickerItemSelected: {
     backgroundColor: '#ffcc02',
   },
   pickerItemText: {
-    fontSize: 16,
+    fontSize: scale(16),
     color: '#1e2939',
     textAlign: 'center' as any,
     fontWeight: '500' as any,
@@ -504,29 +505,29 @@ const styles = StyleSheet.create({
   },
   confirmButton: {
     width: '100%',
-    height: 52,
+    height: scale(52),
     backgroundColor: '#60584d',
-    borderRadius: 14,
+    borderRadius: scale(14),
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
   },
   confirmButtonText: {
-    fontSize: 18,
+    fontSize: scale(18),
     fontWeight: '700' as any,
     color: '#ffffff',
   },
   submitButtonContainer: {
     position: 'absolute' as any,
-    left: 16,
-    right: 16,
-    bottom: 36,
+    left: scale(16),
+    right: scale(16),
+    bottom: scale(36),
     alignItems: 'center' as any,
   },
   submitButton: {
     width: '100%',
-    maxWidth: 360,
-    height: 66,
-    borderRadius: 200,
+    maxWidth: scale(360),
+    height: scale(66),
+    borderRadius: scale(200),
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
   },
@@ -538,8 +539,8 @@ const styles = StyleSheet.create({
   },
   submitButtonText: {
     fontWeight: '700' as any,
-    fontSize: 27,
-    lineHeight: 32.4,
+    fontSize: scale(27),
+    lineHeight: scale(32.4),
   },
   submitButtonTextActive: {
     color: '#ffffff',
@@ -548,4 +549,3 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
 });
-

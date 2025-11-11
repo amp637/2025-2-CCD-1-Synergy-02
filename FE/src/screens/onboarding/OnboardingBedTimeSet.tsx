@@ -9,6 +9,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { scale } from '../../utils/scale';
 
 const timeOptions = [19, 20, 21, 22, 23, 24];
 
@@ -19,7 +20,7 @@ interface OnboardingBedTimeSetProps {
 export default function OnboardingBedTimeSet({ onComplete }: OnboardingBedTimeSetProps) {
   const { width } = useWindowDimensions();
   const isTablet = width > 600;
-  const MAX_WIDTH = isTablet ? 420 : 360;
+  const MAX_WIDTH = scale(isTablet ? 420 : 360);
 
   const [selectedTime, setSelectedTime] = useState<number | null>(null);
 
@@ -112,24 +113,24 @@ const styles = StyleSheet.create({
   },
   header: {
     width: '100%',
-    height: 56, // Consistent header height
+    height: scale(56), // Consistent header height
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
     backgroundColor: '#FFFFFF', // Consistent header background
-    borderBottomWidth: 1,
+    borderBottomWidth: scale(1),
     borderBottomColor: '#EAEAEA', // Consistent header border
   },
   headerText: {
-    fontSize: 27,
+    fontSize: scale(27),
     fontWeight: '700' as any, // Consistent font weight
     color: '#1A1A1A', // Consistent font color
-    lineHeight: 32.4,
+    lineHeight: scale(32.4),
     textAlign: 'center',
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 48, // Adjusted to move content down by 24px
-    paddingBottom: 100, // Consistent bottom padding for fixed button
+    paddingHorizontal: scale(16),
+    paddingTop: scale(48), // Adjusted to move content down by 24px
+    paddingBottom: scale(100), // Consistent bottom padding for fixed button
     alignItems: 'center' as any,
     flexGrow: 1,
   },
@@ -138,10 +139,10 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   title: {
-    fontSize: 24,
+    fontSize: scale(24),
     fontWeight: '700' as any,
     color: '#1e2939',
-    marginBottom: 24, // Adjusted from 32 to 24 for consistency
+    marginBottom: scale(24), // Adjusted from 32 to 24 for consistency
     textAlign: 'left', // Adjusted to left align
   },
   timeButtonsContainer: {
@@ -151,14 +152,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between' as any,
   },
   timeButton: {
-    width: 164, // Increased width
-    height: 144, // Increased height
-    borderRadius: 25,
-    borderWidth: 1,
+    width: '48%', // 2열 그리드 유지 - scale 제거
+    height: scale(144), // Increased height
+    borderRadius: scale(25),
+    borderWidth: scale(1),
     borderColor: '#ffcc02', // Unselected border color
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
-    marginBottom: 24, // Vertical spacing
+    marginBottom: scale(24), // Vertical spacing
   },
   timeButtonSelected: {
     backgroundColor: '#60584d', // Selected background color
@@ -169,9 +170,9 @@ const styles = StyleSheet.create({
     borderColor: '#ffcc02',
   },
   timeButtonText: {
-    fontSize: 48,
+    fontSize: scale(48),
     fontWeight: '700' as any,
-    lineHeight: 57.6,
+    lineHeight: scale(57.6),
   },
   timeButtonTextSelected: {
     color: '#ffffff', // Selected text color
@@ -181,16 +182,16 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     position: 'absolute' as any,
-    left: 16,
-    right: 16,
-    bottom: 36,
+    left: scale(16),
+    right: scale(16),
+    bottom: scale(36),
     alignItems: 'center' as any,
   },
   nextButton: {
     width: '100%',
-    maxWidth: 360,
-    height: 66,
-    borderRadius: 200,
+    maxWidth: scale(360),
+    height: scale(66),
+    borderRadius: scale(200),
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
   },
@@ -201,9 +202,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#c4bcb1',
   },
   nextButtonText: {
-    fontSize: 27,
+    fontSize: scale(27),
     fontWeight: '700' as any,
-    lineHeight: 32.4,
+    lineHeight: scale(32.4),
   },
   nextButtonTextActive: {
     color: '#ffffff',

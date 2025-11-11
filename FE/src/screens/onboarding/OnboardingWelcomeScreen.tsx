@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
+import { scale } from '../../utils/scale';
 
 interface OnboardingWelcomeScreenProps {
   onStartPress?: () => void;
@@ -18,7 +19,7 @@ interface OnboardingWelcomeScreenProps {
 export default function OnboardingWelcomeScreen({ onStartPress }: OnboardingWelcomeScreenProps) {
   const { width } = useWindowDimensions();
   const isTablet = width > 600;
-  const MAX_WIDTH = isTablet ? 420 : 360;
+  const MAX_WIDTH = scale(isTablet ? 420 : 360);
 
   const handleStartPress = () => {
     console.log('시작하기 버튼 클릭');
@@ -60,9 +61,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9fafb',
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 70,
-    paddingBottom: 120,
+    paddingHorizontal: scale(16),
+    paddingTop: scale(70),
+    paddingBottom: scale(120),
     alignItems: 'center' as any,
     flexGrow: 1,
   },
@@ -72,36 +73,36 @@ const styles = StyleSheet.create({
     alignItems: 'center' as any,
   },
   logo: {
-    width: 232,
-    height: 232,
-    marginTop: 100,
+    width: scale(232),
+    height: scale(232),
+    marginTop: scale(100),
   },
   introText: {
-    fontSize: 24,
+    fontSize: scale(24),
     fontWeight: '700' as '700',
     color: '#090a0a',
     textAlign: 'center',
-    lineHeight: 28.8,
-    marginTop: 24,
+    lineHeight: scale(28.8),
+    marginTop: scale(24),
   },
   submitButtonContainer: {
     position: 'absolute' as any,
-    left: 16,
-    right: 16,
-    bottom: 36,
+    left: scale(16),
+    right: scale(16),
+    bottom: scale(36),
     alignItems: 'center' as any,
   },
   button: {
     width: '100%',
-    maxWidth: 360,
-    height: 66,
-    borderRadius: 200,
+    maxWidth: scale(360),
+    height: scale(66),
+    borderRadius: scale(200),
     backgroundColor: '#60584d',
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
   },
   buttonText: {
-    fontSize: 27,
+    fontSize: scale(27),
     fontWeight: '700' as '700',
     color: '#ffffff',
   },
