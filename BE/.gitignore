@@ -30,3 +30,4 @@ application-local.yml
 application-local.properties
 application-secret.yml
 application-secret.properties
+/src/main/resources/fcm-token.json
