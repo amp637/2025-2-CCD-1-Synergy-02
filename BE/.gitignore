@@ -30,3 +30,7 @@ application-local.yml
 application-local.properties
 application-secret.yml
 application-secret.properties
+service-account-key.json
+
+# Test files
+test_tts_audio.html

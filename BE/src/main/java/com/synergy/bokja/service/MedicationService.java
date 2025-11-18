@@ -32,6 +32,7 @@ public class MedicationService {
     private final QuizOptionRepository quizOptionRepository;
     private final AlarmCombRepository alarmCombRepository;
     private final CombinationRepository combinationRepository;
+    private final TtsService ttsService;
 
     /**
      * OCR + (임시 LLM 하드코딩) 처리:
@@ -333,6 +334,9 @@ public class MedicationService {
             // description = user_medicine_item_table.description
             String description = item.getDescription();
 
+            // TTS 생성 (Base64 문자열 반환)
+            String audioUrl = ttsService.generateTtsFromText(description);
+
             // 병용주의 원료(materials) 조회
             String medNameNorm = normalizeKR(med.getName());
             List<MaterialDTO> materials = combinationRepository.findAll().stream()
@@ -351,6 +355,7 @@ public class MedicationService {
                     med.getImage(),
                     information,   // ← medicine_table.description
                     description,   // ← user_medicine_item_table.description
+                    audioUrl,      // ← TTS 오디오 Base64 인코딩 문자열
                     materials
             );
         }).collect(Collectors.toList());

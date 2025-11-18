@@ -16,6 +16,7 @@ public class MedicationSummaryService {
     private final UserMedicineRepository userMedicineRepository;
     private final UserMedicineItemRepository userMedicineItemRepository;
     private final CombinationRepository combinationRepository;
+    private final TtsService ttsService;
 
     /**
      * - uno 소유 검증
@@ -64,12 +65,17 @@ public class MedicationSummaryService {
                         }
                     }
 
+                    // TTS 생성 (Base64 문자열 반환)
+                    String descriptionText = item.getDescription();
+                    String audioUrl = ttsService.generateTtsFromText(descriptionText);
+
                     return MedicationItemDTO.builder()
                             .mdno(med.getMdno())
                             .name(med.getName())
                             .classification(med.getClassification())
                             .image(med.getImage())
-                            .description(item.getDescription()) // DB값 그대로
+                            .description(descriptionText) // DB값 그대로
+                            .audioUrl(audioUrl) // TTS 오디오 Base64 인코딩 문자열
                             .materials(new ArrayList<>(mats))
                             .build();
                 })
