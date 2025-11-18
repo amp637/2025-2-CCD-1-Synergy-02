@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import responsive from '../../utils/responsive';
 
 interface PrescriptionProcessingScreenProps {
   onSuccess?: () => void; // OCR 성공 시
@@ -80,16 +81,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center' as any,
   },
   loader: {
-    width: 68,
-    height: 68,
-    marginBottom: 12,
+    width: responsive(68),
+    height: responsive(68),
+    marginBottom: responsive(12),
   },
   loadingText: {
     
-    fontSize: 24,
+    fontSize: responsive(24),
     fontWeight: '700' as '700',
     color: '#101828',
-    lineHeight: 28.8,
+    lineHeight: responsive(28.8),
   },
 });
 

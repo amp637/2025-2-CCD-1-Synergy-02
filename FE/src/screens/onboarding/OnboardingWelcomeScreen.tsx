@@ -10,7 +10,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
-import { scale } from '../../utils/scale';
+import responsive from '../../utils/responsive';
 
 interface OnboardingWelcomeScreenProps {
   onStartPress?: () => void;
@@ -19,7 +19,7 @@ interface OnboardingWelcomeScreenProps {
 export default function OnboardingWelcomeScreen({ onStartPress }: OnboardingWelcomeScreenProps) {
   const { width } = useWindowDimensions();
   const isTablet = width > 600;
-  const MAX_WIDTH = scale(isTablet ? 420 : 360);
+  const MAX_WIDTH = responsive(isTablet ? 420 : 360);
   const insets = useSafeAreaInsets();
 
   const handleStartPress = () => {
@@ -31,7 +31,7 @@ export default function OnboardingWelcomeScreen({ onStartPress }: OnboardingWelc
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + scale(80) }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + responsive(80) }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.pageWrapper, { maxWidth: MAX_WIDTH }]}>
@@ -47,7 +47,7 @@ export default function OnboardingWelcomeScreen({ onStartPress }: OnboardingWelc
       </ScrollView>
 
       {/* 하단 고정 버튼 */}
-      <View style={[styles.submitButtonContainer, { bottom: insets.bottom + scale(16) }]}>
+      <View style={[styles.submitButtonContainer, { bottom: insets.bottom + responsive(16) }]}>
         <TouchableOpacity style={styles.button} onPress={handleStartPress}>
           <Text style={styles.buttonText}>시작하기</Text>
         </TouchableOpacity>
@@ -62,8 +62,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9fafb',
   },
   scrollContent: {
-    paddingHorizontal: scale(16),
-    paddingTop: scale(70),
+    paddingHorizontal: responsive(16),
+    paddingTop: responsive(70),
     alignItems: 'center' as any,
     flexGrow: 1,
   },
@@ -73,35 +73,35 @@ const styles = StyleSheet.create({
     alignItems: 'center' as any,
   },
   logo: {
-    width: scale(232),
-    height: scale(232),
-    marginTop: scale(100),
+    width: responsive(232),
+    height: responsive(232),
+    marginTop: responsive(100),
   },
   introText: {
-    fontSize: scale(24),
+    fontSize: responsive(24),
     fontWeight: '700' as '700',
     color: '#090a0a',
     textAlign: 'center',
-    lineHeight: scale(28.8),
-    marginTop: scale(24),
+    lineHeight: responsive(28.8),
+    marginTop: responsive(24),
   },
   submitButtonContainer: {
     position: 'absolute' as any,
-    left: scale(16),
-    right: scale(16),
+    left: responsive(16),
+    right: responsive(16),
     alignItems: 'center' as any,
   },
   button: {
     width: '100%',
-    maxWidth: scale(360),
-    height: scale(66),
-    borderRadius: scale(200),
+    maxWidth: responsive(360),
+    height: responsive(66),
+    borderRadius: responsive(200),
     backgroundColor: '#60584d',
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
   },
   buttonText: {
-    fontSize: scale(27),
+    fontSize: responsive(27),
     fontWeight: '700' as '700',
     color: '#ffffff',
   },

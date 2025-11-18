@@ -4,12 +4,13 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   useWindowDimensions,
   Image,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import responsive from '../../utils/responsive';
 
 interface SideEffect {
   id: string;
@@ -35,7 +36,7 @@ const sideEffects: SideEffect[] = [
 export default function IntakeSideEffectCheck({ onComplete }: IntakeSideEffectCheckProps) {
   const { width } = useWindowDimensions();
   const isTablet = width > 600;
-  const MAX_WIDTH = isTablet ? 420 : 360;
+  const MAX_WIDTH = responsive(isTablet ? 420 : 360);
 
   const [selectedEffects, setSelectedEffects] = useState<string[]>([]);
 
@@ -162,24 +163,24 @@ const styles = StyleSheet.create({
   },
   header: {
     width: '100%',
-    height: 56,
+    height: responsive(56),
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
     backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
+    borderBottomWidth: responsive(1),
     borderBottomColor: '#EAEAEA',
   },
   headerText: {
-    fontSize: 27,
+    fontSize: responsive(27),
     fontWeight: '700' as any,
     color: '#1A1A1A',
-    lineHeight: 32.4,
+    lineHeight: responsive(32.4),
     textAlign: 'center',
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 48,
-    paddingBottom: 100,
+    paddingHorizontal: responsive(16),
+    paddingTop: responsive(48),
+    paddingBottom: responsive(100),
     alignItems: 'center' as any,
     flexGrow: 1,
   },
@@ -194,16 +195,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between' as any,
   },
   effectButton: {
-    width: 164,
-    height: 144,
-    borderRadius: 25,
-    borderWidth: 1,
+    width: responsive(164),
+    height: responsive(144),
+    borderRadius: responsive(25),
+    borderWidth: responsive(1),
     borderColor: '#ffcc02',
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
-    marginBottom: 24,
-    paddingHorizontal: 8,
-    paddingVertical: 12,
+    marginBottom: responsive(24),
+    paddingHorizontal: responsive(8),
+    paddingVertical: responsive(12),
   },
   effectButtonSelected: {
     backgroundColor: '#60584d',
@@ -214,18 +215,18 @@ const styles = StyleSheet.create({
     borderColor: '#ffcc02',
   },
   iconCircle: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: responsive(70),
+    height: responsive(70),
+    borderRadius: responsive(35),
     backgroundColor: '#ffffff',
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
-    marginBottom: 8,
+    marginBottom: responsive(8),
     overflow: 'hidden' as any,
   },
   iconImage: {
-    width: 70,
-    height: 70,
+    width: responsive(70),
+    height: responsive(70),
   },
   noEffectTextContainer: {
     flex: 1,
@@ -233,17 +234,17 @@ const styles = StyleSheet.create({
     alignItems: 'center' as any,
   },
   effectButtonText: {
-    fontSize: 18,
+    fontSize: responsive(18),
     fontWeight: '500' as any,
     color: '#5e5b50',
-    lineHeight: 20,
+    lineHeight: responsive(20),
     textAlign: 'center',
   },
   noEffectText: {
-    fontSize: 27,
+    fontSize: responsive(27),
     fontWeight: '700' as any,
     color: '#60584d',
-    lineHeight: 32.4,
+    lineHeight: responsive(32.4),
     textAlign: 'center',
   },
   effectButtonTextSelected: {
@@ -251,16 +252,16 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     position: 'absolute' as any,
-    left: 16,
-    right: 16,
-    bottom: 36,
+    left: responsive(16),
+    right: responsive(16),
+    bottom: responsive(36),
     alignItems: 'center' as any,
   },
   nextButton: {
     width: '100%',
-    maxWidth: 360,
-    height: 66,
-    borderRadius: 200,
+    maxWidth: responsive(360),
+    height: responsive(66),
+    borderRadius: responsive(200),
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
   },
@@ -271,9 +272,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#c4bcb1',
   },
   nextButtonText: {
-    fontSize: 27,
+    fontSize: responsive(27),
     fontWeight: '700' as any,
-    lineHeight: 32.4,
+    lineHeight: responsive(32.4),
   },
   nextButtonTextActive: {
     color: '#ffffff',

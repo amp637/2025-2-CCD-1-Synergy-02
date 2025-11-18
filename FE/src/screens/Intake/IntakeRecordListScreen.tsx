@@ -4,12 +4,13 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
   ScrollView,
   useWindowDimensions,
   InteractionManager,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import responsive from '../../utils/responsive';
 
 interface RecordItem {
   id: string;
@@ -26,7 +27,8 @@ const IntakeRecordListScreen = React.memo(({ onRecordPress, onExit }: IntakeReco
   const [isInteractionComplete, setIsInteractionComplete] = useState(false);
   const { width } = useWindowDimensions();
   const isTablet = width > 600;
-  const MAX_WIDTH = isTablet ? 420 : 360;
+  const MAX_WIDTH = responsive(isTablet ? 420 : 360);
+  const insets = useSafeAreaInsets();
 
   // 샘플 데이터 (스크롤 테스트용으로 여러 개 추가)
   const records: RecordItem[] = [
@@ -93,16 +95,18 @@ const IntakeRecordListScreen = React.memo(({ onRecordPress, onExit }: IntakeReco
   }, [onExit]);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar barStyle="dark-content" />
       
       {/* 상단 헤더 */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>복약 기록</Text>
+      <View style={[styles.header, { paddingTop: insets.top }]}>
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>복약 기록</Text>
+        </View>
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + responsive(20) }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.pageWrapper, { maxWidth: MAX_WIDTH }]}>
@@ -141,24 +145,25 @@ const styles = StyleSheet.create({
   },
   header: {
     width: '100%',
-    height: 56,
-    borderBottomWidth: 1,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: responsive(1),
     borderBottomColor: '#EAEAEA',
+  },
+  headerContent: {
+    minHeight: responsive(56),
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
-    backgroundColor: '#FFFFFF',
   },
   headerTitle: {
     fontWeight: '700' as '700',
-    fontSize: 27,
+    fontSize: responsive(27),
     color: '#1A1A1A',
-    lineHeight: 32.4,
+    lineHeight: responsive(32.4),
     textAlign: 'center',
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 24,
-    paddingBottom: 100,
+    paddingHorizontal: responsive(16),
+    paddingTop: responsive(24),
     alignItems: 'center' as any,
   },
   pageWrapper: {
@@ -167,13 +172,13 @@ const styles = StyleSheet.create({
   },
   recordCard: {
     width: '100%',
-    height: 100,
+    height: responsive(100),
     backgroundColor: '#FFFFFF',
-    borderRadius: 10,
-    borderWidth: 1,
+    borderRadius: responsive(10),
+    borderWidth: responsive(1),
     borderColor: '#E5E7EB',
-    marginBottom: 12,
-    paddingHorizontal: 21,
+    marginBottom: responsive(12),
+    paddingHorizontal: responsive(21),
     justifyContent: 'center' as any,
   },
   recordContainer: {
@@ -184,38 +189,38 @@ const styles = StyleSheet.create({
   },
   recordTitle: {
     fontWeight: '700' as '700',
-    fontSize: 24,
+    fontSize: responsive(24),
     color: '#101828',
-    lineHeight: 28.8,
-    marginBottom: 4,
+    lineHeight: responsive(28.8),
+    marginBottom: responsive(4),
   },
   recordDate: {
     fontWeight: '400' as '400',
-    fontSize: 14,
+    fontSize: responsive(14),
     color: '#6A7282',
-    lineHeight: 16.8,
+    lineHeight: responsive(16.8),
   },
   exitButtonContainer: {
     position: 'absolute',
-    left: 16,
-    right: 16,
-    bottom: 36,
+    left: responsive(16),
+    right: responsive(16),
+    bottom: responsive(36),
     alignItems: 'center' as any,
   },
   exitButton: {
     width: '100%',
-    maxWidth: 360,
-    height: 66,
+    maxWidth: responsive(360),
+    height: responsive(66),
     backgroundColor: '#60584D',
-    borderRadius: 200,
+    borderRadius: responsive(200),
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
   },
   exitButtonText: {
     fontWeight: '700' as '700',
-    fontSize: 27,
+    fontSize: responsive(27),
     color: '#FFFFFF',
-    lineHeight: 32.4,
+    lineHeight: responsive(32.4),
   },
 });
 

@@ -8,7 +8,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
-import { scale } from '../../utils/scale';
+import responsive from '../../utils/responsive';
 
 interface OnboardingAlarmGuideProps {
   onComplete?: () => void;
@@ -17,7 +17,7 @@ interface OnboardingAlarmGuideProps {
 export default function OnboardingAlarmGuide({ onComplete }: OnboardingAlarmGuideProps) {
   const { width } = useWindowDimensions();
   const isTablet = width > 600;
-  const MAX_WIDTH = scale(isTablet ? 420 : 360);
+  const MAX_WIDTH = responsive(isTablet ? 420 : 360);
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
@@ -61,37 +61,37 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
-    paddingHorizontal: scale(30),
+    paddingHorizontal: responsive(30),
   },
   card: {
     backgroundColor: '#ffffff',
-    borderRadius: scale(30),
-    width: scale(300),
-    height: scale(320),
+    borderRadius: responsive(30),
+    width: responsive(300),
+    height: responsive(320),
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
-    paddingVertical: scale(40),
-    paddingHorizontal: scale(20),
+    paddingVertical: responsive(40),
+    paddingHorizontal: responsive(20),
   },
   logo: {
-    width: scale(105),
-    height: scale(105),
-    marginBottom: scale(20),
+    width: responsive(105),
+    height: responsive(105),
+    marginBottom: responsive(20),
   },
   title: {
-    fontSize: scale(24),
+    fontSize: responsive(24),
     fontWeight: '700' as any,
     color: '#60584d',
     textAlign: 'center' as any,
-    lineHeight: scale(34.75),
-    marginBottom: scale(23),
+    lineHeight: responsive(34.75),
+    marginBottom: responsive(23),
   },
   subtitle: {
-    fontSize: scale(14),
+    fontSize: responsive(14),
     fontWeight: '600' as any,
     color: '#b5a288',
     textAlign: 'center' as any,
-    lineHeight: scale(20),
-    letterSpacing: scale(0.1),
+    lineHeight: responsive(20),
+    letterSpacing: responsive(0.1),
   },
 });

@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { scale } from '../../utils/scale';
+import responsive from '../../utils/responsive';
 
 interface OnboardingMorningTimeSetProps {
   onNext?: () => void;
@@ -19,7 +19,7 @@ export default function OnboardingMorningTimeSet({ onNext }: OnboardingMorningTi
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const { width } = useWindowDimensions();
   const isTablet = width > 600;
-  const MAX_WIDTH = scale(isTablet ? 420 : 360);
+  const MAX_WIDTH = responsive(isTablet ? 420 : 360);
   const insets = useSafeAreaInsets();
 
   const times = ['6시', '7시', '8시', '9시', '10시', '11시'];
@@ -49,7 +49,7 @@ export default function OnboardingMorningTimeSet({ onNext }: OnboardingMorningTi
       </View>
 
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + scale(80) }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + responsive(80) }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.pageWrapper, { maxWidth: MAX_WIDTH }]}>
@@ -85,7 +85,7 @@ export default function OnboardingMorningTimeSet({ onNext }: OnboardingMorningTi
       </ScrollView>
 
       {/* Next Button */}
-      <View style={[styles.buttonContainer, { bottom: insets.bottom + scale(16) }]}>
+      <View style={[styles.buttonContainer, { bottom: insets.bottom + responsive(16) }]}>
         <TouchableOpacity 
           style={[
             styles.nextButton,
@@ -109,24 +109,24 @@ const styles = StyleSheet.create({
   header: {
     width: '100%',
     backgroundColor: '#FFFFFF',
-    borderBottomWidth: scale(1),
+    borderBottomWidth: responsive(1),
     borderBottomColor: '#EAEAEA',
   },
   headerContent: {
-    minHeight: scale(56),
+    minHeight: responsive(56),
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
   },
   headerText: {
-    fontSize: scale(27),
+    fontSize: responsive(27),
     fontWeight: '700' as any,
     color: '#1A1A1A',
-    lineHeight: scale(32.4),
+    lineHeight: responsive(32.4),
     textAlign: 'center',
   },
   scrollContent: {
-    paddingHorizontal: scale(16),
-    paddingTop: scale(24),
+    paddingHorizontal: responsive(16),
+    paddingTop: responsive(24),
     alignItems: 'center' as any,
     flexGrow: 1,
   },
@@ -135,10 +135,10 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   title: {
-    fontSize: scale(24),
+    fontSize: responsive(24),
     fontWeight: '700' as any,
     color: '#1e2939',
-    marginBottom: scale(24),
+    marginBottom: responsive(24),
     textAlign: 'left',
   },
   timeButtonsContainer: {
@@ -149,13 +149,13 @@ const styles = StyleSheet.create({
   },
   timeButton: {
     width: '48%', // 2열 그리드 유지 - scale 제거
-    height: scale(144), // height는 scale 처리
-    borderRadius: scale(25),
-    borderWidth: scale(1),
+    height: responsive(144), // height는 scale 처리
+    borderRadius: responsive(25),
+    borderWidth: responsive(1),
     borderColor: '#ffcc02',
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
-    marginBottom: scale(24),
+    marginBottom: responsive(24),
   },
   timeButtonSelected: {
     backgroundColor: '#60584d',
@@ -166,9 +166,9 @@ const styles = StyleSheet.create({
     borderColor: '#ffcc02',
   },
   timeButtonText: {
-    fontSize: scale(48),
+    fontSize: responsive(48),
     fontWeight: '700' as any,
-    lineHeight: scale(57.6),
+    lineHeight: responsive(57.6),
   },
   timeButtonTextSelected: {
     color: '#ffffff',
@@ -178,15 +178,15 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     position: 'absolute' as any,
-    left: scale(16),
-    right: scale(16),
+    left: responsive(16),
+    right: responsive(16),
     alignItems: 'center' as any,
   },
   nextButton: {
     width: '100%',
-    maxWidth: scale(360),
-    height: scale(66),
-    borderRadius: scale(200),
+    maxWidth: responsive(360),
+    height: responsive(66),
+    borderRadius: responsive(200),
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
   },
@@ -197,10 +197,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#c4bcb1',
   },
   nextButtonText: {
-    fontSize: scale(27),
+    fontSize: responsive(27),
     fontWeight: '700' as any,
     color: '#ffffff',
-    lineHeight: scale(32.4),
+    lineHeight: responsive(32.4),
   },
   nextButtonTextActive: {
     color: '#ffffff',
