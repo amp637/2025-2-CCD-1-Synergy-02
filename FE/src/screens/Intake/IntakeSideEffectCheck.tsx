@@ -8,7 +8,7 @@ import {
   useWindowDimensions,
   Image,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import responsive from '../../utils/responsive';
 
@@ -37,6 +37,7 @@ export default function IntakeSideEffectCheck({ onComplete }: IntakeSideEffectCh
   const { width } = useWindowDimensions();
   const isTablet = width > 600;
   const MAX_WIDTH = responsive(isTablet ? 420 : 360);
+  const insets = useSafeAreaInsets();
 
   const [selectedEffects, setSelectedEffects] = useState<string[]>([]);
 
@@ -70,12 +71,14 @@ export default function IntakeSideEffectCheck({ onComplete }: IntakeSideEffectCh
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
 
       {/* 헤더 */}
-      <View style={styles.header}>
-        <Text style={styles.headerText}>부작용 체크</Text>
+      <View style={[styles.header, { paddingTop: insets.top }]}>
+        <View style={styles.headerContent}>
+          <Text style={styles.headerText}>부작용 체크</Text>
+        </View>
       </View>
 
       <ScrollView
@@ -163,12 +166,14 @@ const styles = StyleSheet.create({
   },
   header: {
     width: '100%',
-    height: responsive(56),
-    justifyContent: 'center' as any,
-    alignItems: 'center' as any,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: responsive(1),
     borderBottomColor: '#EAEAEA',
+  },
+  headerContent: {
+    minHeight: responsive(56),
+    justifyContent: 'center' as any,
+    alignItems: 'center' as any,
   },
   headerText: {
     fontSize: responsive(27),
