@@ -8,10 +8,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -27,6 +27,8 @@ public class EventService {
     private final QuizOptionRepository quizOptionRepository;
     private final CycleRepository cycleRepository;
     private final TtsService ttsService;
+    private final UserRepository userRepository;
+    private final FcmService fcmService;
 
     public AIScriptResponseDTO getAIScript(Long umno) {
         DescriptionEntity description = descriptionRepository.findByUserMedicine_UmnoAndEventName_Enno(umno, 3l); // AI call -> enno : 3
@@ -52,64 +54,6 @@ public class EventService {
         return dto;
     }
 
-    public EventItemResponseDTO getEventList(Long uno) {
-
-        List<UserMedicineEntity> userMedicines = userMedicineRepository.findAllByUser_Uno(uno);
-
-        List<Long> umnoList = userMedicines.stream()
-                .map(UserMedicineEntity::getUmno)
-                .collect(Collectors.toList());
-
-        List<EventEntity> events = eventRepository.findAllByUserMedicine_UmnoIn(umnoList);
-
-        Map<Long, UserMedicineEntity> umMap = userMedicines.stream()
-                .collect(Collectors.toMap(UserMedicineEntity::getUmno, entity -> entity));
-
-        Map<Long, AlarmTimeEntity> atMap = alarmTimeRepository.findAllByUserMedicine_UmnoIn(umnoList).stream()
-                .collect(Collectors.toMap(AlarmTimeEntity::getAtno, entity -> entity));
-
-        Map<Long, EventNameEntity> enMap = eventNameRepository.findAll().stream()
-                .collect(Collectors.toMap(EventNameEntity::getEnno, entity -> entity));
-
-        Map<Long, DescriptionEntity> dMap = descriptionRepository.findAllByEventName_Enno(1L).stream()
-                .collect(Collectors.toMap(description -> description.getUserMedicine().getUmno(), entity -> entity));
-
-        Map<Long, QuizEntity> qMap = quizRepository.findAllByUserMedicine_UmnoIn(umnoList).stream()
-                .collect(Collectors.toMap(quiz -> quiz.getUserMedicine().getUmno(), entity -> entity));
-
-        List<EventItemDTO> dtoList = events.stream().map(event -> {
-
-            UserMedicineEntity um = umMap.get(event.getUserMedicine().getUmno());
-            AlarmTimeEntity at = atMap.get(event.getAlarmTime().getAtno());
-            EventNameEntity en = enMap.get(event.getEventName().getEnno());
-            DescriptionEntity d = dMap.get(event.getUserMedicine().getUmno());
-            QuizEntity q = qMap.get(event.getUserMedicine().getUmno());
-
-            Long eno = event.getEno();
-            Long umno = um.getUmno();
-            String name = (en != null) ? en.getName() : "알 수 없는 이벤트";
-            LocalDateTime time = (at != null) ? event.getCreatedAt().toLocalDate().atTime(at.getTime().getTime()) : event.getCreatedAt();
-            String hospital = (um != null) ? um.getHospital() : "알 수 없는 병원";
-            String category = (um != null) ? um.getCategory() : "미분류";
-            String description = (d != null) ? d.getDescription() : "설명 없음";
-
-            CandidateDTO candidate = null;
-            if (q != null) {
-                List<QuizOptionEntity> options = quizOptionRepository.findAllByQuiz_Qno(q.getQno());
-                String answer = options.stream().filter(QuizOptionEntity::getIsCorrect).findFirst().map(QuizOptionEntity::getContent).orElse("정답 없음");
-                List<String> wrongs = options.stream().filter(o -> !o.getIsCorrect()).map(QuizOptionEntity::getContent).collect(Collectors.toList());
-                candidate = new CandidateDTO(answer, wrongs);
-            }
-
-            return new EventItemDTO(eno, umno, name, time, hospital, category, description,
-                    (q != null) ? q.getQuestion() : "퀴즈 없음",
-                    candidate);
-
-        }).collect(Collectors.toList());
-
-        return new EventItemResponseDTO(uno, dtoList);
-    }
-
     @Transactional
     public updateEventStatusResponseDTO updateEventStatus(Long eno) {
 
@@ -133,5 +77,203 @@ public class EventService {
         }
 
         return new updateEventStatusResponseDTO(event.getEno());
+    }
+
+    /**
+     * [배치 작업] 1. 매일 00시에 호출될 메인 메서드
+     */
+    @Transactional
+    public void createAndSendDailyEvents() {
+        List<UserEntity> activeUsers = userRepository.findAllByIsActive(true);
+
+        for (UserEntity user : activeUsers) {
+            try {
+                // 1. 유저의 "오늘 날짜" 이벤트 생성
+                List<EventEntity> newEvents = generateEventsForUser(user);
+
+                if (newEvents.isEmpty()) continue;
+
+                // 2. DB에 일괄 저장
+                eventRepository.saveAll(newEvents);
+
+                // 3. 저장한 이벤트로 DTO 생성
+                EventItemResponseDTO fcmPayload = buildEventResponseDTO(user.getUno(), newEvents);
+
+                // 4. FCM으로 전송
+//                 fcmService.sendEvents(user.getFcmToken(), fcmPayload);
+
+            } catch (Exception e) {
+                System.err.println("Error generating events for user " + user.getUno() + ": " + e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * [배치 작업] 2. 퀴즈를 랜덤 선택하여 EventEntity 리스트를 생성 (DB 저장 전)
+     */
+    private List<EventEntity> generateEventsForUser(UserEntity user) {
+        LocalDate today = LocalDate.now();
+        List<EventEntity> newEvents = new ArrayList<>();
+
+        // --- (N+1 방지 로직 1) 오늘 먹을 약 필터링 ---
+        List<UserMedicineEntity> allMeds = userMedicineRepository.findAllByUser_Uno(user.getUno());
+        List<Long> umnoList = allMeds.stream().map(UserMedicineEntity::getUmno).collect(Collectors.toList());
+        if (umnoList.isEmpty()) return newEvents; // 복약 정보 없음
+
+        Map<Long, CycleEntity> cycleMap = cycleRepository.findAllByUserMedicine_UmnoIn(umnoList).stream()
+                .collect(Collectors.toMap(c -> c.getUserMedicine().getUmno(), c -> c));
+
+        List<UserMedicineEntity> activeMedsToday = allMeds.stream()
+                .filter(med -> {
+                    CycleEntity cycle = cycleMap.get(med.getUmno());
+                    if (cycle == null) return false;
+                    LocalDate start = cycle.getStartDate();
+                    LocalDate end = cycle.getEndDate();
+                    return !today.isBefore(start) && !today.isAfter(end);
+                })
+                .toList();
+
+        if (activeMedsToday.isEmpty()) return newEvents; // 오늘 먹을 약 없음
+
+        List<Long> activeUmnoList = activeMedsToday.stream()
+                .map(UserMedicineEntity::getUmno)
+                .collect(Collectors.toList());
+
+        List<AlarmTimeEntity> alarmTimes = alarmTimeRepository.findAllByUserMedicine_UmnoIn(activeUmnoList);
+
+        EventNameEntity alarmEventName = eventNameRepository.findById(1L)
+                .orElseThrow(() -> new RuntimeException("enno=1인 '알림' 이벤트명을 찾을 수 없습니다.")); // (배치 실패 처리)
+
+        Map<Long, List<QuizEntity>> quizMap = quizRepository.findAllByUserMedicine_UmnoIn(activeUmnoList)
+                .stream()
+                .collect(Collectors.groupingBy(q -> q.getUserMedicine().getUmno()));
+
+        Random random = new Random();
+        Map<Long, DescriptionEntity> descriptionMap = new HashMap<>();
+
+        for (UserMedicineEntity med : activeMedsToday) {
+
+            // 동적 설명 생성
+            String category = med.getCategory();
+            String dynamicDescription = String.format("%s약 먹을 시간이에요! 아래 퀴즈를 풀어주세요", category);
+
+            DescriptionEntity newDescription = DescriptionEntity.builder()
+                    .userMedicine(med)
+                    .eventName(alarmEventName)
+                    .description(dynamicDescription)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+            DescriptionEntity savedDescription = descriptionRepository.save(newDescription);
+
+            // Map에 저장 (Key: umno, Value: 저장된 엔티티)
+            descriptionMap.put(med.getUmno(), savedDescription);
+        }
+
+        for (AlarmTimeEntity alarm : alarmTimes) {
+            Long currentUmno = alarm.getUserMedicine().getUmno();
+
+            // 퀴즈 랜덤 선택
+            QuizEntity selectedQuiz = null;
+            List<QuizEntity> quizzesForThisUmno = quizMap.get(currentUmno);
+            if (quizzesForThisUmno != null && !quizzesForThisUmno.isEmpty()) {
+                selectedQuiz = quizzesForThisUmno.get(random.nextInt(quizzesForThisUmno.size()));
+            }
+
+            EventEntity newEvent = EventEntity.builder()
+                    .userMedicine(alarm.getUserMedicine())
+                    .alarmTime(alarm)
+                    .eventName(alarmEventName)
+                    .description(descriptionMap.get(currentUmno))
+                    .quiz(selectedQuiz)
+                    .status(EventStatus.발행)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+
+            newEvents.add(newEvent);
+        }
+        return newEvents;
+    }
+
+    /**
+     * [API] 1. '오늘의 이벤트' 목록 조회 (백업용)
+     */
+    public EventItemResponseDTO getEventList(Long uno) {
+
+        // 1. 'uno'로 오늘 '발행' 상태인 이벤트만 조회
+        List<EventEntity> events = eventRepository.findAllByUserMedicine_User_UnoAndStatus(uno, EventStatus.발행);
+
+        if (events.isEmpty()) {
+            return new EventItemResponseDTO(uno, new ArrayList<>());
+        }
+
+        // 2. 공통 DTO 빌더를 호출하여 반환
+        return buildEventResponseDTO(uno, events);
+    }
+
+    /**
+     * [공통 헬퍼] 1. EventEntity 목록을 받아서 최종 DTO(FCM/API 응답용)로 만듦
+     */
+    private EventItemResponseDTO buildEventResponseDTO(Long uno, List<EventEntity> events) {
+        // (N+1 방지) 퀴즈 옵션 미리 조회 (기존과 동일)
+        List<Long> qnoList = events.stream()
+                .map(EventEntity::getQuiz)
+                .filter(Objects::nonNull)
+                .map(QuizEntity::getQno)
+                .distinct()
+                .collect(Collectors.toList());
+
+        Map<Long, List<QuizOptionEntity>> optionsMap =
+                quizOptionRepository.findAllByQuiz_QnoIn(qnoList).stream()
+                        .collect(Collectors.groupingBy(opt -> opt.getQuiz().getQno()));
+
+        List<EventItemDTO> eventListDTOs = events.stream().map(event -> {
+
+            UserMedicineEntity med = event.getUserMedicine();
+            // (Event -> AlarmTime -> Time -> LocalTime)
+            LocalDateTime time = event.getCreatedAt().toLocalDate().atTime(event.getAlarmTime().getTime().getTime());
+
+            QuizEntity selectedQuiz = event.getQuiz();
+            String question = null;
+            CandidateDTO candidate = null;
+
+            if (selectedQuiz != null) {
+                question = selectedQuiz.getQuestion();
+
+                // 퀴즈 옵션 조합
+                List<QuizOptionEntity> options = optionsMap.getOrDefault(selectedQuiz.getQno(), new ArrayList<>());
+
+                // 정답 리스트
+                List<String> correctAnswers = options.stream()
+                        .filter(QuizOptionEntity::getIsCorrect)
+                        .map(QuizOptionEntity::getContent)
+                        .collect(Collectors.toList());
+
+                // 오답 리스트
+                List<String> wrongAnswers = options.stream()
+                        .filter(o -> !o.getIsCorrect())
+                        .map(QuizOptionEntity::getContent)
+                        .collect(Collectors.toList());
+
+                // 셔플 및 DTO 생성
+                Collections.shuffle(wrongAnswers);
+
+                if (!correctAnswers.isEmpty()) {
+                    candidate = new CandidateDTO(
+                            correctAnswers.get(0), // 정답 1개
+                            wrongAnswers.stream().limit(3).collect(Collectors.toList()) // 오답 3개
+                    );
+                }
+            }
+
+            return new EventItemDTO(
+                    event.getEno(), med.getUmno(), event.getEventName().getName(), time,
+                    med.getHospital(), med.getCategory(),
+                    (event.getDescription() != null) ? event.getDescription().getDescription() : "",
+                    question, candidate
+            );
+        }).collect(Collectors.toList());
+
+        return new EventItemResponseDTO(uno, eventListDTOs);
+
     }
 }
