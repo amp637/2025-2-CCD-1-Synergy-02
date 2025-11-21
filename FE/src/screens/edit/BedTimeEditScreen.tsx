@@ -11,7 +11,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { StatusBar } from 'expo-status-bar';
 import responsive from '../../utils/responsive';
 
-const timeOptions = [7, 8, 9, 10, 11, 12];
+const timeOptions = [19, 20, 21, 22, 23, 24];
 
 interface BedTimeEditScreenProps {
   onComplete?: () => void;
@@ -23,7 +23,7 @@ export default function BedTimeEditScreen({ onComplete }: BedTimeEditScreenProps
   const MAX_WIDTH = responsive(isTablet ? 420 : 360);
   const insets = useSafeAreaInsets();
 
-  const [selectedTime, setSelectedTime] = useState<number | null>(7); // 기존 시간으로 초기화
+  const [selectedTime, setSelectedTime] = useState<number | null>(22); // 기존 시간으로 초기화
 
   const isNextButtonActive = selectedTime !== null;
 
@@ -55,7 +55,7 @@ export default function BedTimeEditScreen({ onComplete }: BedTimeEditScreenProps
       >
         <View style={[styles.pageWrapper, { maxWidth: MAX_WIDTH }]}>
           {/* 제목 */}
-          <Text style={styles.title}>취침 시간을 선택하세요.</Text>
+          <Text style={styles.title}>취침 전 약 시간을 선택하세요.</Text>
 
           {/* 시간 버튼 그리드 */}
           <View style={styles.timeButtonsContainer}>
@@ -154,23 +154,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row' as any,
     flexWrap: 'wrap' as any,
     justifyContent: 'space-between' as any,
-    gap: 0,
   },
   timeButton: {
-    width: '48%',
-    maxWidth: 148,
-    aspectRatio: 148 / 128,
-    minHeight: 128,
-    borderRadius: 25,
+    width: responsive(164),
+    height: responsive(144),
+    borderRadius: responsive(25),
+    borderWidth: responsive(1),
+    borderColor: '#ffcc02',
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
     marginBottom: responsive(24),
   },
   timeButtonSelected: {
     backgroundColor: '#60584d',
+    borderColor: '#60584d',
   },
   timeButtonUnselected: {
     backgroundColor: '#ffcc02',
+    borderColor: '#ffcc02',
   },
   timeButtonText: {
     fontSize: responsive(48),
@@ -185,17 +186,15 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     position: 'absolute' as any,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingHorizontal: 16,
-    paddingBottom: 36,
+    left: responsive(16),
+    right: responsive(16),
     alignItems: 'center' as any,
   },
   nextButton: {
-    width: 320,
-    height: 66,
-    borderRadius: 200,
+    width: '100%',
+    maxWidth: responsive(360),
+    height: responsive(66),
+    borderRadius: responsive(200),
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
   },
