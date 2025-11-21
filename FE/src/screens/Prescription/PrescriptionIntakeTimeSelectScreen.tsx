@@ -7,10 +7,13 @@ import {
   Image,
   ScrollView,
   useWindowDimensions,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import responsive from '../../utils/responsive';
+import { updateMedicationCombination } from '../../api/medicationApi';
 
 type TimePeriod = 'breakfast' | 'lunch' | 'dinner' | 'bedtime';
 
@@ -28,19 +31,22 @@ const timeOptions: TimeOption[] = [
 ];
 
 interface PrescriptionIntakeTimeSelectScreenProps {
+  umno: number; // 복약 정보 ID
   onNext?: (timePeriods: TimePeriod[]) => void;
 }
 
-export default function PrescriptionIntakeTimeSelectScreen({ onNext }: PrescriptionIntakeTimeSelectScreenProps) {
-  const [selectedTimePeriods, setSelectedTimePeriods] = useState<TimePeriod[]>(['breakfast']); // 배열로 변경 (중복 선택 가능)
+export default function PrescriptionIntakeTimeSelectScreen({ umno, onNext }: PrescriptionIntakeTimeSelectScreenProps) {
+  const [selectedTimePeriods, setSelectedTimePeriods] = useState<TimePeriod[]>(['breakfast']);
+  const [isLoading, setIsLoading] = useState(false);
   const { width } = useWindowDimensions();
   const isTablet = width > 600;
   const MAX_WIDTH = responsive(isTablet ? 420 : 360);
   const insets = useSafeAreaInsets();
 
-  const isNextButtonActive = selectedTimePeriods.length > 0;
+  const isNextButtonActive = selectedTimePeriods.length > 0 && !isLoading;
 
   const handleTimePeriodSelect = (period: TimePeriod) => {
+    if (isLoading) return;
     // 이미 선택된 경우 제거, 선택되지 않은 경우 추가
     if (selectedTimePeriods.includes(period)) {
       setSelectedTimePeriods(selectedTimePeriods.filter(p => p !== period));
@@ -49,14 +55,31 @@ export default function PrescriptionIntakeTimeSelectScreen({ onNext }: Prescript
     }
   };
 
-  const handleNext = () => {
-    if (isNextButtonActive) {
-      // TODO: 선택된 시간대를 API로 전송
-      // PUT /api/v1/users/me/medications/{umno}/combination
-      // 또는 POST /api/v1/users/me/medications/{umno}/times
-      
-      console.log('선택된 복용 시간대:', selectedTimePeriods);
-      onNext?.(selectedTimePeriods);
+  const handleNext = async () => {
+    if (!isNextButtonActive) return;
+
+    setIsLoading(true);
+    try {
+      // TimePeriod를 백엔드 형식으로 변환 (bedtime -> night)
+      const combination = selectedTimePeriods
+        .map((period) => (period === 'bedtime' ? 'night' : period))
+        .join(',');
+
+      const response = await updateMedicationCombination(umno, combination);
+      if (response.header?.resultCode === 1000) {
+        console.log('복약 시간대 조합 수정 성공:', response);
+        onNext?.(selectedTimePeriods);
+      } else {
+        throw new Error(response.header?.resultMsg || '복약 시간대 조합 수정에 실패했습니다.');
+      }
+    } catch (error: any) {
+      console.error('복약 시간대 조합 수정 실패:', error);
+      Alert.alert(
+        '수정 실패',
+        error.response?.data?.header?.resultMsg || error.response?.data?.message || error.message || '복약 시간대 조합 수정 중 오류가 발생했습니다.'
+      );
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -126,7 +149,11 @@ export default function PrescriptionIntakeTimeSelectScreen({ onNext }: Prescript
           onPress={handleNext}
           disabled={!isNextButtonActive}
         >
-          <Text style={styles.nextButtonText}>다음으로</Text>
+          {isLoading ? (
+            <ActivityIndicator color="#ffffff" size="small" />
+          ) : (
+            <Text style={styles.nextButtonText}>다음으로</Text>
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>

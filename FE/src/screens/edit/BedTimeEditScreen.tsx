@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,12 +6,16 @@ import {
   StyleSheet,
   ScrollView,
   useWindowDimensions,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import responsive from '../../utils/responsive';
+import { getMedicationTime, updateMedicationTime } from '../../api/userApi';
+import { getMedicationTimePresets } from '../../api/presetApi';
 
-const timeOptions = [19, 20, 21, 22, 23, 24];
+const TYPE = 'night';
 
 interface BedTimeEditScreenProps {
   onComplete?: () => void;
@@ -23,18 +27,73 @@ export default function BedTimeEditScreen({ onComplete }: BedTimeEditScreenProps
   const MAX_WIDTH = responsive(isTablet ? 420 : 360);
   const insets = useSafeAreaInsets();
 
-  const [selectedTime, setSelectedTime] = useState<number | null>(22); // 기존 시간으로 초기화
+  const [selectedTime, setSelectedTime] = useState<number | null>(null);
+  const [utno, setUtno] = useState<number | null>(null);
+  const [timeOptions, setTimeOptions] = useState<number[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(true);
 
-  const isNextButtonActive = selectedTime !== null;
+  // 기존 시간 조회 및 프리셋 로드
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setIsLoadingData(true);
+        
+        // 1. 기존 시간 조회
+        const currentTimeResponse = await getMedicationTime(TYPE);
+        if (currentTimeResponse.header?.resultCode === 1000 && currentTimeResponse.body) {
+          setUtno(currentTimeResponse.body.utno);
+          setSelectedTime(currentTimeResponse.body.time);
+        }
+
+        // 2. 프리셋 조회
+        const presetsResponse = await getMedicationTimePresets(TYPE);
+        if (presetsResponse.header?.resultCode === 1000 && presetsResponse.body) {
+          const hours = presetsResponse.body.times.map((preset) => preset.time);
+          setTimeOptions(hours);
+        }
+      } catch (error: any) {
+        console.error('데이터 로드 실패:', error);
+        Alert.alert('오류', '복약 시간 정보를 불러오는데 실패했습니다.');
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+    loadData();
+  }, []);
+
+  const isNextButtonActive = selectedTime !== null && !isLoading;
 
   const handleTimeSelect = (hour: number) => {
     setSelectedTime(hour);
   };
 
-  const handleNext = () => {
-    if (isNextButtonActive) {
-      console.log('선택된 취침 전 약 시간:', selectedTime);
-      onComplete?.();
+  const handleNext = async () => {
+    if (!isNextButtonActive || selectedTime === null || utno === null) return;
+
+    setIsLoading(true);
+    try {
+      const response = await updateMedicationTime(utno, {
+        type: TYPE,
+        time: selectedTime,
+      });
+      
+      if (response.header?.resultCode === 1000) {
+        console.log('복약 시간 수정 성공:', response);
+        Alert.alert('수정 완료', '복약 시간이 수정되었습니다.', [
+          { text: '확인', onPress: () => onComplete?.() },
+        ]);
+      } else {
+        throw new Error(response.header?.resultMsg || '복약 시간 수정에 실패했습니다.');
+      }
+    } catch (error: any) {
+      console.error('복약 시간 수정 실패:', error);
+      Alert.alert(
+        '수정 실패',
+        error.response?.data?.header?.resultMsg || error.response?.data?.message || error.message || '복약 시간 수정 중 오류가 발생했습니다.'
+      );
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -58,8 +117,14 @@ export default function BedTimeEditScreen({ onComplete }: BedTimeEditScreenProps
           <Text style={styles.title}>취침 전 약 시간을 선택하세요.</Text>
 
           {/* 시간 버튼 그리드 */}
-          <View style={styles.timeButtonsContainer}>
-            {timeOptions.map((hour) => {
+          {isLoadingData ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#60584d" />
+              <Text style={styles.loadingText}>시간 정보 불러오는 중...</Text>
+            </View>
+          ) : (
+            <View style={styles.timeButtonsContainer}>
+              {timeOptions.map((hour) => {
               const isSelected = selectedTime === hour;
               return (
                 <TouchableOpacity
@@ -81,7 +146,8 @@ export default function BedTimeEditScreen({ onComplete }: BedTimeEditScreenProps
                 </TouchableOpacity>
               );
             })}
-          </View>
+            </View>
+          )}
         </View>
       </ScrollView>
 
@@ -95,14 +161,18 @@ export default function BedTimeEditScreen({ onComplete }: BedTimeEditScreenProps
           onPress={handleNext}
           disabled={!isNextButtonActive}
         >
-          <Text
-            style={[
-              styles.nextButtonText,
-              isNextButtonActive ? styles.nextButtonTextActive : styles.nextButtonTextInactive,
-            ]}
-          >
-            수정 완료
-          </Text>
+          {isLoading ? (
+            <ActivityIndicator color="#ffffff" size="small" />
+          ) : (
+            <Text
+              style={[
+                styles.nextButtonText,
+                isNextButtonActive ? styles.nextButtonTextActive : styles.nextButtonTextInactive,
+              ]}
+            >
+              수정 완료
+            </Text>
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -214,5 +284,16 @@ const styles = StyleSheet.create({
   },
   nextButtonTextInactive: {
     color: '#ffffff',
+  },
+  loadingContainer: {
+    width: '100%',
+    alignItems: 'center' as any,
+    justifyContent: 'center' as any,
+    paddingVertical: responsive(40),
+  },
+  loadingText: {
+    marginTop: responsive(12),
+    fontSize: responsive(18),
+    color: '#99a1af',
   },
 });

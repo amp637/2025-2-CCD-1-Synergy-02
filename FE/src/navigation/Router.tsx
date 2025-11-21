@@ -29,10 +29,10 @@ export type RootStackParamList = {
   OnboardingLunchTimeSet: undefined;
   OnboardingEveningTimeSet: undefined;
   OnboardingBedTimeSet: undefined;
-  PrescriptionCapture: undefined;
-  PrescriptionProcessing: undefined;
+  PrescriptionCapture: { mode?: 'prescription' | 'envelope' } | undefined;
+  PrescriptionProcessing: { imageUri: string; mode?: 'prescription' | 'envelope' } | undefined;
   PrescriptionIntakeTimeSelect: { source?: 'prescription' | 'medicationEnvelope' } | undefined;
-  PrescriptionAnalysisResult: { source?: 'prescription' | 'medicationEnvelope' } | undefined;
+  PrescriptionAnalysisResult: { umno: number; source?: 'prescription' | 'medicationEnvelope' } | undefined;
   PrescriptionDetail: { umno: number } | undefined;
   EditInfoSelect: undefined;
   UserInfoEdit: undefined;

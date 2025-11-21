@@ -184,6 +184,8 @@ export default function App() {
   const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null); // 선택된 복약 기록 ID
   const [isEditingFromPrescription, setIsEditingFromPrescription] = useState(false); // 처방전 상세에서 시간 수정 중인지 여부
   const [quizWrongCount, setQuizWrongCount] = useState(0); // 퀴즈 오답 횟수 추적
+  const [capturedImageUri, setCapturedImageUri] = useState<string | null>(null); // 촬영된 이미지 URI
+  const [prescriptionUmno, setPrescriptionUmno] = useState<number | null>(null); // 처방전/약봉투 분석 결과 umno
 
   useEffect(() => {
     async function loadResourcesAndDataAsync() {
@@ -319,36 +321,49 @@ export default function App() {
       case 'PrescriptionCaptureScreen': return <PrescriptionCaptureScreen 
         mode={captureMode}
         showRetakeMessage={showRetakeMessage}
-        onCapture={() => {
-          // 촬영 즉시 Processing 화면으로 이동
+        onCapture={(imageUri) => {
+          // 촬영 즉시 Processing 화면으로 이동 (이미지 URI 저장)
+          console.log('촬영 완료, 이미지 URI:', imageUri);
+          setCapturedImageUri(imageUri);
           setShowRetakeMessage(false);
           setCurrentScreen('PrescriptionProcessingScreen');
         }}
       />;
       case 'PrescriptionProcessingScreen': return <PrescriptionProcessingScreen 
         mode={captureMode}
-        onSuccess={() => {
-          // OCR 성공 - 약 데이터 추가 후 IntakeTimeSelect로 이동
-          setMedications([
-            {
-              id: 1,
-              category: '감기약',
-              hospital: '가람병원',
-              frequency: 2,
-              startDate: '2025년 10월 5일',
-            },
-            {
-              id: 2,
-              category: '소화제',
-              hospital: '서울병원',
-              frequency: 3,
-              startDate: '2025년 10월 10일',
-            },
-          ]);
-          setCurrentScreen('PrescriptionIntakeTimeSelectScreen');
+        imageUri={capturedImageUri || undefined}
+        onSuccess={(umno) => {
+          // OCR 성공
+          setCapturedImageUri(null); // 이미지 URI 초기화
+          
+          if (umno) {
+            // umno가 있으면 분석 결과 화면으로 이동
+            setPrescriptionUmno(umno);
+            setCurrentScreen('PrescriptionAnalysisResultScreen');
+          } else {
+            // umno가 없으면 약 데이터 추가 후 IntakeTimeSelect로 이동 (레거시)
+            setMedications([
+              {
+                id: 1,
+                category: '감기약',
+                hospital: '가람병원',
+                frequency: 2,
+                startDate: '2025년 10월 5일',
+              },
+              {
+                id: 2,
+                category: '소화제',
+                hospital: '서울병원',
+                frequency: 3,
+                startDate: '2025년 10월 10일',
+              },
+            ]);
+            setCurrentScreen('PrescriptionIntakeTimeSelectScreen');
+          }
         }}
         onFailure={() => {
           // OCR 실패 - Capture로 복귀 + 재촬영 메시지
+          setCapturedImageUri(null); // 이미지 URI 초기화
           setShowRetakeMessage(true);
           setCurrentScreen('PrescriptionCaptureScreen');
         }}
@@ -359,7 +374,14 @@ export default function App() {
           setCurrentScreen('PrescriptionAnalysisResultScreen');
         }} 
       />;
-      case 'PrescriptionAnalysisResultScreen': return <PrescriptionAnalysisResultScreen onGoHome={() => setCurrentScreen('Home')} />;
+      case 'PrescriptionAnalysisResultScreen': return <PrescriptionAnalysisResultScreen 
+        umno={prescriptionUmno || undefined}
+        source={captureMode === 'envelope' ? 'medicationEnvelope' : 'prescription'}
+        onGoHome={() => {
+          setPrescriptionUmno(null);
+          setCurrentScreen('Home');
+        }} 
+      />;
       case 'PrescriptionDetailScreen': return <PrescriptionDetailScreen 
         medication={medications.find(m => m.id === selectedMedicationId)}
         onGoHome={() => setCurrentScreen('Home')}
@@ -407,7 +429,15 @@ export default function App() {
       />;
       case 'HomeScreenList': return <HomeScreenList />;
       case 'OnboardingWelcomeScreen': return <OnboardingWelcomeScreen onStartPress={() => setCurrentScreen('OnboardingSignUp')} />;
-      case 'OnboardingSignUp': return <OnboardingSignUp onSignUpComplete={() => setCurrentScreen('OnboardingAlarmGuide')} />;
+      case 'OnboardingSignUp': return <OnboardingSignUp onSignUpComplete={(isLogin) => {
+        // isLogin이 true면 로그인 성공 → 홈으로 이동
+        // isLogin이 false면 회원가입 성공 → 복약 시간 설정으로 이동
+        if (isLogin) {
+          setCurrentScreen('Home');
+        } else {
+          setCurrentScreen('OnboardingAlarmGuide');
+        }
+      }} />;
       case 'OnboardingAlarmGuide': return <OnboardingAlarmGuide onComplete={() => setCurrentScreen('OnboardingMorningTimeSet')} />;
       case 'OnboardingMorningTimeSet': return <OnboardingMorningTimeSet onNext={() => setCurrentScreen('OnboardingLunchTimeSet')} />;
       case 'OnboardingLunchTimeSet': return <OnboardingLunchTimeSet onNext={() => setCurrentScreen('OnboardingEveningTimeSet')} />;

@@ -32,3 +32,22 @@ declare module "*.webp" {
   export default value;
 }
 
+// expo-status-bar 타입 선언
+declare module 'expo-status-bar' {
+  import { Component } from 'react';
+  
+  export type StatusBarStyle = 'auto' | 'inverted' | 'light' | 'dark';
+  
+  export interface StatusBarProps {
+    style?: StatusBarStyle;
+    translucent?: boolean;
+    hidden?: boolean;
+    backgroundColor?: string;
+    networkActivityIndicatorVisible?: boolean;
+  }
+  
+  export class StatusBar extends Component<StatusBarProps> {}
+  
+  export default StatusBar;
+}
+
