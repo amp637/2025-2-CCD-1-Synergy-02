@@ -8,10 +8,11 @@ import {
   ScrollView,
   useWindowDimensions,
   Modal,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import Svg, { Path, Rect } from 'react-native-svg';
+import responsive from '../../utils/responsive';
 
 interface OnboardingSignUpProps {
   onSignUpComplete?: () => void;
@@ -27,7 +28,8 @@ export default function OnboardingSignUp({ onSignUpComplete }: OnboardingSignUpP
   const [selectedDay, setSelectedDay] = useState(new Date().getDate());
   const { width } = useWindowDimensions();
   const isTablet = width > 600;
-  const MAX_WIDTH = isTablet ? 420 : 360;
+  const MAX_WIDTH = responsive(isTablet ? 420 : 360);
+  const insets = useSafeAreaInsets();
 
   // 연도 목록 생성 (현재 년도부터 100년 전까지)
   const currentYear = new Date().getFullYear();
@@ -90,16 +92,18 @@ export default function OnboardingSignUp({ onSignUpComplete }: OnboardingSignUpP
   const isFormValid = name.trim() !== '' && birthdate.trim() !== '' && phone.trim() !== '';
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['bottom']}>
       <StatusBar style="dark" />
 
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>기본 정보 입력</Text>
+      <View style={[styles.header, { paddingTop: insets.top }]}>
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>기본 정보 입력</Text>
+        </View>
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + responsive(80) }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.pageWrapper, { maxWidth: MAX_WIDTH }]}>
@@ -146,7 +150,7 @@ export default function OnboardingSignUp({ onSignUpComplete }: OnboardingSignUpP
                 onPress={handleDatePickerPress}
                 activeOpacity={0.8}
               >
-                <Svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                <Svg width={responsive(28)} height={responsive(28)} viewBox="0 0 24 24" fill="none">
                   <Rect x="3" y="6" width="18" height="15" rx="2" stroke="#ffffff" strokeWidth="2" strokeLinejoin="round"/>
                   <Path d="M3 10H21" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   <Path d="M7 3V6" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -182,7 +186,7 @@ export default function OnboardingSignUp({ onSignUpComplete }: OnboardingSignUpP
       </ScrollView>
 
       {/* Submit Button - 모든 항목 입력 시 활성화 */}
-      <View style={styles.submitButtonContainer}>
+      <View style={[styles.submitButtonContainer, { bottom: insets.bottom + responsive(16) }]}>
         <TouchableOpacity
           style={[
             styles.submitButton,
@@ -339,24 +343,25 @@ const styles = StyleSheet.create({
   },
   header: {
     width: '100%',
-    height: 56,
-    borderBottomWidth: 1,
+    borderBottomWidth: responsive(1),
     borderBottomColor: '#EAEAEA',
+    backgroundColor: '#FFFFFF',
+  },
+  headerContent: {
+    minHeight: responsive(56),
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
-    backgroundColor: '#FFFFFF',
   },
   headerTitle: {
     fontWeight: '700' as any,
-    fontSize: 27,
+    fontSize: responsive(27),
     color: '#1A1A1A',
-    lineHeight: 32.4,
+    lineHeight: responsive(32.4),
     textAlign: 'center',
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 48,
-    paddingBottom: 100,
+    paddingHorizontal: responsive(16),
+    paddingTop: responsive(24),
     alignItems: 'center' as any,
   },
   pageWrapper: {
@@ -365,56 +370,56 @@ const styles = StyleSheet.create({
   },
   inputSection: {
     width: '100%',
-    marginBottom: 24,
+    marginBottom: responsive(24),
   },
   headingContainer: {
     width: '100%',
-    height: 30,
-    marginBottom: 6,
+    height: responsive(30),
+    marginBottom: responsive(6),
   },
   headingText: {
-    fontSize: 24,
+    fontSize: responsive(24),
     fontWeight: '700' as any,
     color: '#1e2939',
-    lineHeight: 28.8,
+    lineHeight: responsive(28.8),
     textAlign: 'left',
   },
   birthdateInputContainer: {
     flexDirection: 'row' as any,
     alignItems: 'center' as any,
-    gap: 12,
+    gap: responsive(12),
   },
   textInput: {
     flex: 1,
-    height: 70,
+    height: responsive(70),
     backgroundColor: '#ffffff',
-    borderWidth: 1,
+    borderWidth: responsive(1),
     borderColor: '#e5e7eb',
-    borderRadius: 14,
+    borderRadius: responsive(14),
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
   },
   inputText: {
-    fontSize: 24,
+    fontSize: responsive(24),
     fontWeight: '700' as any,
     color: '#99a1af',
-    lineHeight: 28.8,
+    lineHeight: responsive(28.8),
     textAlign: 'center',
     width: '100%',
-    paddingHorizontal: 16,
+    paddingHorizontal: responsive(16),
   },
   calendarButton: {
-    width: 70,
-    height: 70,
+    width: responsive(70),
+    height: responsive(70),
     backgroundColor: '#60584d',
-    borderRadius: 14,
+    borderRadius: responsive(14),
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: responsive(2) },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: responsive(4),
+    elevation: responsive(3),
   },
   modalOverlay: {
     flex: 1,
@@ -424,35 +429,35 @@ const styles = StyleSheet.create({
   },
   datePickerContainer: {
     width: '92%',
-    maxWidth: 400,
+    maxWidth: responsive(400),
     backgroundColor: '#ffffff',
-    borderRadius: 24,
-    paddingVertical: 24,
-    paddingHorizontal: 20,
+    borderRadius: responsive(24),
+    paddingVertical: responsive(24),
+    paddingHorizontal: responsive(20),
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: responsive(4) },
     shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowRadius: responsive(12),
+    elevation: responsive(8),
   },
   datePickerHeader: {
     flexDirection: 'row' as any,
     justifyContent: 'space-between' as any,
     alignItems: 'center' as any,
-    marginBottom: 20,
+    marginBottom: responsive(20),
   },
   datePickerTitle: {
-    fontSize: 22,
+    fontSize: responsive(22),
     fontWeight: '700' as any,
     color: '#1e2939',
-    letterSpacing: -0.5,
+    letterSpacing: responsive(-0.5),
   },
   closeButton: {
-    fontSize: 24,
+    fontSize: responsive(24),
     color: '#99a1af',
     fontWeight: '400' as any,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: responsive(8),
+    paddingVertical: responsive(4),
   },
   datePickerContent: {
     width: '100%',
@@ -460,40 +465,40 @@ const styles = StyleSheet.create({
   pickerRow: {
     flexDirection: 'row' as any,
     justifyContent: 'space-between' as any,
-    gap: 8,
-    marginBottom: 20,
+    gap: responsive(8),
+    marginBottom: responsive(20),
   },
   pickerColumn: {
     flex: 1,
   },
   pickerLabel: {
-    fontSize: 15,
+    fontSize: responsive(15),
     fontWeight: '700' as any,
     color: '#1e2939',
     textAlign: 'center' as any,
-    marginBottom: 10,
+    marginBottom: responsive(10),
   },
   pickerScroll: {
-    maxHeight: 280,
-    borderWidth: 1,
+    maxHeight: responsive(280),
+    borderWidth: responsive(1),
     borderColor: '#e5e7eb',
-    borderRadius: 14,
+    borderRadius: responsive(14),
     backgroundColor: '#f9fafb',
   },
   pickerScrollContent: {
-    paddingVertical: 4,
+    paddingVertical: responsive(4),
   },
   pickerItem: {
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
+    paddingVertical: responsive(14),
+    paddingHorizontal: responsive(12),
+    borderBottomWidth: responsive(1),
     borderBottomColor: '#f0f0f0',
   },
   pickerItemSelected: {
     backgroundColor: '#ffcc02',
   },
   pickerItemText: {
-    fontSize: 16,
+    fontSize: responsive(16),
     color: '#1e2939',
     textAlign: 'center' as any,
     fontWeight: '500' as any,
@@ -504,29 +509,28 @@ const styles = StyleSheet.create({
   },
   confirmButton: {
     width: '100%',
-    height: 52,
+    height: responsive(52),
     backgroundColor: '#60584d',
-    borderRadius: 14,
+    borderRadius: responsive(14),
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
   },
   confirmButtonText: {
-    fontSize: 18,
+    fontSize: responsive(18),
     fontWeight: '700' as any,
     color: '#ffffff',
   },
   submitButtonContainer: {
     position: 'absolute' as any,
-    left: 16,
-    right: 16,
-    bottom: 36,
+    left: responsive(16),
+    right: responsive(16),
     alignItems: 'center' as any,
   },
   submitButton: {
     width: '100%',
-    maxWidth: 360,
-    height: 66,
-    borderRadius: 200,
+    maxWidth: responsive(360),
+    height: responsive(66),
+    borderRadius: responsive(200),
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
   },
@@ -538,8 +542,8 @@ const styles = StyleSheet.create({
   },
   submitButtonText: {
     fontWeight: '700' as any,
-    fontSize: 27,
-    lineHeight: 32.4,
+    fontSize: responsive(27),
+    lineHeight: responsive(32.4),
   },
   submitButtonTextActive: {
     color: '#ffffff',
@@ -548,4 +552,3 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
 });
-

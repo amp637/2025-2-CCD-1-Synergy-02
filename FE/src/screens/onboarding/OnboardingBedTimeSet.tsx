@@ -4,11 +4,12 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   useWindowDimensions,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import responsive from '../../utils/responsive';
 
 const timeOptions = [19, 20, 21, 22, 23, 24];
 
@@ -19,7 +20,8 @@ interface OnboardingBedTimeSetProps {
 export default function OnboardingBedTimeSet({ onComplete }: OnboardingBedTimeSetProps) {
   const { width } = useWindowDimensions();
   const isTablet = width > 600;
-  const MAX_WIDTH = isTablet ? 420 : 360;
+  const MAX_WIDTH = responsive(isTablet ? 420 : 360);
+  const insets = useSafeAreaInsets();
 
   const [selectedTime, setSelectedTime] = useState<number | null>(null); // 사용자가 선택해야 함
 
@@ -37,16 +39,18 @@ export default function OnboardingBedTimeSet({ onComplete }: OnboardingBedTimeSe
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['bottom']}>
       <StatusBar style="dark" />
 
       {/* 헤더 */}
-      <View style={styles.header}>
-        <Text style={styles.headerText}>복약 시간 설정</Text>
+      <View style={[styles.header, { paddingTop: insets.top }]}>
+        <View style={styles.headerContent}>
+          <Text style={styles.headerText}>복약 시간 설정</Text>
+        </View>
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + responsive(80) }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.pageWrapper, { maxWidth: MAX_WIDTH }]}>
@@ -82,7 +86,7 @@ export default function OnboardingBedTimeSet({ onComplete }: OnboardingBedTimeSe
       </ScrollView>
 
       {/* 완료 버튼 */}
-      <View style={styles.buttonContainer}>
+      <View style={[styles.buttonContainer, { bottom: insets.bottom + responsive(16) }]}>
         <TouchableOpacity
           style={[
             styles.nextButton,
@@ -112,24 +116,25 @@ const styles = StyleSheet.create({
   },
   header: {
     width: '100%',
-    height: 56, // Consistent header height
-    justifyContent: 'center' as any,
-    alignItems: 'center' as any,
     backgroundColor: '#FFFFFF', // Consistent header background
-    borderBottomWidth: 1,
+    borderBottomWidth: responsive(1),
     borderBottomColor: '#EAEAEA', // Consistent header border
   },
+  headerContent: {
+    minHeight: responsive(56), // Consistent header height
+    justifyContent: 'center' as any,
+    alignItems: 'center' as any,
+  },
   headerText: {
-    fontSize: 27,
+    fontSize: responsive(27),
     fontWeight: '700' as any, // Consistent font weight
     color: '#1A1A1A', // Consistent font color
-    lineHeight: 32.4,
+    lineHeight: responsive(32.4),
     textAlign: 'center',
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 48, // Adjusted to move content down by 24px
-    paddingBottom: 100, // Consistent bottom padding for fixed button
+    paddingHorizontal: responsive(16),
+    paddingTop: responsive(24),
     alignItems: 'center' as any,
     flexGrow: 1,
   },
@@ -138,10 +143,10 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   title: {
-    fontSize: 24,
+    fontSize: responsive(24),
     fontWeight: '700' as any,
     color: '#1e2939',
-    marginBottom: 24, // Adjusted from 32 to 24 for consistency
+    marginBottom: responsive(24), // Adjusted from 32 to 24 for consistency
     textAlign: 'left', // Adjusted to left align
   },
   timeButtonsContainer: {
@@ -168,9 +173,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffcc02',
   },
   timeButtonText: {
-    fontSize: 48,
+    fontSize: responsive(48),
     fontWeight: '700' as any,
-    lineHeight: 57.6,
+    lineHeight: responsive(57.6),
   },
   timeButtonTextSelected: {
     color: '#ffffff', // Selected text color
@@ -201,9 +206,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#c4bcb1',
   },
   nextButtonText: {
-    fontSize: 27,
+    fontSize: responsive(27),
     fontWeight: '700' as any,
-    lineHeight: 32.4,
+    lineHeight: responsive(32.4),
   },
   nextButtonTextActive: {
     color: '#ffffff',

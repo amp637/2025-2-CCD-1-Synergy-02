@@ -4,10 +4,10 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   useWindowDimensions,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -20,7 +20,8 @@ interface EditInfoSelectProps {
 export default function EditInfoSelect({ onBasicInfo, onMedicationTime, onExit }: EditInfoSelectProps) {
   const { width } = useWindowDimensions();
   const isTablet = width > 600;
-  const MAX_WIDTH = isTablet ? 420 : 360;
+  const MAX_WIDTH = responsive(isTablet ? 420 : 360);
+  const insets = useSafeAreaInsets();
 
   const handleBasicInfo = () => {
     console.log('기본 정보 수정');
@@ -38,16 +39,18 @@ export default function EditInfoSelect({ onBasicInfo, onMedicationTime, onExit }
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['bottom']}>
       <StatusBar style="dark" />
 
       {/* 헤더 */}
-      <View style={styles.header}>
-        <Text style={styles.headerText}>내 정보 수정</Text>
+      <View style={[styles.header, { paddingTop: insets.top }]}>
+        <View style={styles.headerContent}>
+          <Text style={styles.headerText}>내 정보 수정</Text>
+        </View>
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + responsive(80) }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.pageWrapper, { maxWidth: MAX_WIDTH }]}>
@@ -107,24 +110,25 @@ const styles = StyleSheet.create({
   },
   header: {
     width: '100%',
-    height: 56,
-    borderBottomWidth: 1,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: responsive(1),
     borderBottomColor: '#EAEAEA',
+  },
+  headerContent: {
+    minHeight: responsive(56),
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
-    backgroundColor: '#FFFFFF',
   },
   headerText: {
     fontWeight: '700' as any,
-    fontSize: 27,
+    fontSize: responsive(27),
     color: '#1A1A1A',
-    lineHeight: 32.4,
+    lineHeight: responsive(32.4),
     textAlign: 'center',
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 16,
-    paddingBottom: 100,
+    paddingHorizontal: responsive(16),
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
   },
@@ -133,11 +137,11 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   title: {
-    fontSize: 27,
+    fontSize: responsive(27),
     fontWeight: '700' as any,
     color: '#000000',
-    lineHeight: 32.4,
-    marginBottom: 24,
+    lineHeight: responsive(32.4),
+    marginBottom: responsive(24),
   },
   buttonGrid: {
     width: '100%',
@@ -152,10 +156,10 @@ const styles = StyleSheet.create({
     alignItems: 'center' as any,
   },
   optionButtonText: {
-    fontSize: 27,
+    fontSize: responsive(27),
     fontWeight: '700' as any,
     color: '#5A5347',
-    lineHeight: 32.4,
+    lineHeight: responsive(32.4),
     textAlign: 'center',
   },
   buttonContainer: {
@@ -175,12 +179,12 @@ const styles = StyleSheet.create({
     width: 320,
     height: 66,
     backgroundColor: '#60584d',
-    borderRadius: 200,
+    borderRadius: responsive(200),
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
   },
   submitButtonText: {
-    fontSize: 27,
+    fontSize: responsive(27),
     fontWeight: '700' as any,
     color: '#FFFFFF',
   },

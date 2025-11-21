@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
+import responsive from '../../utils/responsive';
 
 interface HomeScreenEmptyProps {
   onPrescriptionRegister?: () => void;
@@ -135,38 +136,38 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 57, // 81 - 24 (status bar height)
-    paddingBottom: 40,
+    paddingHorizontal: responsive(16),
+    paddingTop: responsive(57), // 81 - 24 (status bar height)
+    paddingBottom: responsive(40),
     alignItems: 'center' as any,
   },
   headerSection: {
     width: '100%',
-    maxWidth: 368,
-    marginBottom: 24,
+    maxWidth: responsive(368),
+    marginBottom: responsive(24),
   },
   headingContainer: {
     // Header container
   },
   dateText: {
-    fontSize: 27,
+    fontSize: responsive(27),
     fontWeight: '700' as any,
     color: '#1e2939',
-    lineHeight: 32.4,
-    marginBottom: 5,
+    lineHeight: responsive(32.4),
+    marginBottom: responsive(5),
   },
   greetingText: {
-    fontSize: 16,
+    fontSize: responsive(16),
     fontWeight: '400' as any,
     color: '#6a7282',
-    lineHeight: 24,
+    lineHeight: responsive(24),
   },
   actionButtonsContainer: {
     width: '100%',
-    maxWidth: 368,
+    maxWidth: responsive(368),
     flexDirection: 'row' as any,
     justifyContent: 'space-between' as any,
-    marginBottom: 24,
+    marginBottom: responsive(24),
   },
   actionButton: {
     width: '49%',
@@ -181,14 +182,14 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: 'flex-end' as any,
     alignItems: 'center' as any,
-    paddingBottom: 21,
+    paddingBottom: responsive(21),
   },
   iconContainer: {
     width: 63.36,
     height: 63.36,
     borderRadius: 31.68,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    marginBottom: 18,
+    marginBottom: responsive(18),
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
   },
@@ -197,7 +198,7 @@ const styles = StyleSheet.create({
     height: 40,
   },
   actionButtonText: {
-    fontSize: 24,
+    fontSize: responsive(24),
     fontWeight: '700' as any,
     color: '#ffffff',
     lineHeight: 28.8,
@@ -209,7 +210,7 @@ const styles = StyleSheet.create({
     height: 80.15,
     borderRadius: 16,
     overflow: 'hidden' as any,
-    marginBottom: 24,
+    marginBottom: responsive(24),
   },
   editInfoGradient: {
     width: '100%',
@@ -217,14 +218,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row' as any,
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
-    paddingHorizontal: 20,
+    paddingHorizontal: responsive(20),
   },
   editIconContainer: {
     width: 44.15,
     height: 44.15,
     borderRadius: 22.075,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    marginRight: 18,
+    marginRight: responsive(18),
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
   },
@@ -233,48 +234,48 @@ const styles = StyleSheet.create({
     height: 22.09,
   },
   editInfoButtonText: {
-    fontSize: 24,
+    fontSize: responsive(24),
     fontWeight: '700' as any,
     color: '#ffffff',
     lineHeight: 28.8,
     textAlign: 'left' as any,
   },
   emptyStateContainer: {
-    width: 368,
-    height: 297,
+    width: responsive(368),
+    height: responsive(297),
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
     alignSelf: 'center',
-    marginTop: 40, // Distance from edit button to empty state
+    marginTop: responsive(40), // Distance from edit button to empty state
   },
   emptyIconCircle: {
-    width: 112,
-    height: 112,
-    borderRadius: 56,
+    width: responsive(112),
+    height: responsive(112),
+    borderRadius: responsive(56),
     backgroundColor: '#f9fafb',
-    marginBottom: 44,
+    marginBottom: responsive(44),
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
   },
   emptyIconImage: {
-    width: 64,
-    height: 64,
+    width: responsive(64),
+    height: responsive(64),
   },
   emptyTextContainer: {
     alignItems: 'center' as any,
   },
   emptyTitle: {
-    fontSize: 20,
+    fontSize: responsive(20),
     fontWeight: '700' as any,
     color: '#4a5565',
-    lineHeight: 28,
+    lineHeight: responsive(28),
     marginBottom: 0,
   },
   emptySubtitle: {
-    fontSize: 18,
+    fontSize: responsive(18),
     fontWeight: '400' as any,
     color: '#99a1af',
-    lineHeight: 28,
+    lineHeight: responsive(28),
   },
 });
 

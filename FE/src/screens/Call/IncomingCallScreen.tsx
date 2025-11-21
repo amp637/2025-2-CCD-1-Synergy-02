@@ -3,13 +3,14 @@ import {
   View,
   StyleSheet,
   StatusBar,
-  SafeAreaView,
   ScrollView,
   useWindowDimensions,
   InteractionManager,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { CallButton } from '../../components/CallButtons';
+import responsive from '../../utils/responsive';
 
 interface IncomingCallScreenProps {
   onAccept?: () => void;
@@ -82,9 +83,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#60584d',
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 70,
-    paddingBottom: 120,
+    paddingHorizontal: responsive(16),
+    paddingTop: responsive(70),
+    paddingBottom: responsive(120),
     alignItems: 'center' as any,
     flexGrow: 1,
   },
@@ -94,20 +95,20 @@ const styles = StyleSheet.create({
     alignItems: 'center' as any,
   },
   appLogo: {
-    width: 232,
-    height: 232,
-    marginTop: 100,
+    width: responsive(232),
+    height: responsive(232),
+    marginTop: responsive(100),
   },
   callActionContainer: {
     position: 'absolute',
-    left: 16,
-    right: 16,
-    bottom: 86,
+    left: responsive(16),
+    right: responsive(16),
+    bottom: responsive(86),
     flexDirection: 'row' as any,
     alignItems: 'center' as any,
     justifyContent: 'center' as any,
-    height: 80,
-    gap: 116,
+    height: responsive(80),
+    gap: responsive(116),
   },
 });
 

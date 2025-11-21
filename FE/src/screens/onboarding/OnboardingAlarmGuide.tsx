@@ -5,9 +5,10 @@ import {
   StyleSheet,
   useWindowDimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { StatusBar } from 'expo-status-bar';
+import responsive from '../../utils/responsive';
 
 interface OnboardingAlarmGuideProps {
   onComplete?: () => void;
@@ -16,7 +17,8 @@ interface OnboardingAlarmGuideProps {
 export default function OnboardingAlarmGuide({ onComplete }: OnboardingAlarmGuideProps) {
   const { width } = useWindowDimensions();
   const isTablet = width > 600;
-  const MAX_WIDTH = isTablet ? 420 : 360;
+  const MAX_WIDTH = responsive(isTablet ? 420 : 360);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     // 3초 후 자동으로 다음 화면으로 이동
@@ -29,7 +31,7 @@ export default function OnboardingAlarmGuide({ onComplete }: OnboardingAlarmGuid
   }, [onComplete]);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['bottom']}>
       <StatusBar style="dark" />
       <View style={styles.container}>
         <View style={[styles.card, { maxWidth: MAX_WIDTH }]}>
@@ -59,38 +61,37 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
-    paddingHorizontal: 30,
+    paddingHorizontal: responsive(30),
   },
   card: {
     backgroundColor: '#ffffff',
-    borderRadius: 30,
-    width: 300,
-    height: 320,
+    borderRadius: responsive(30),
+    width: responsive(300),
+    height: responsive(320),
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
-    paddingVertical: 40,
-    paddingHorizontal: 20,
+    paddingVertical: responsive(40),
+    paddingHorizontal: responsive(20),
   },
   logo: {
-    width: 105,
-    height: 105,
-    marginBottom: 20,
+    width: responsive(105),
+    height: responsive(105),
+    marginBottom: responsive(20),
   },
   title: {
-    fontSize: 24,
+    fontSize: responsive(24),
     fontWeight: '700' as any,
     color: '#60584d',
     textAlign: 'center' as any,
-    lineHeight: 34.75,
-    marginBottom: 23,
+    lineHeight: responsive(34.75),
+    marginBottom: responsive(23),
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: responsive(14),
     fontWeight: '600' as any,
     color: '#b5a288',
     textAlign: 'center' as any,
-    lineHeight: 20,
-    letterSpacing: 0.1,
+    lineHeight: responsive(20),
+    letterSpacing: responsive(0.1),
   },
 });
-

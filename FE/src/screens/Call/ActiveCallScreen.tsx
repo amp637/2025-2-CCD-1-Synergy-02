@@ -3,12 +3,13 @@ import {
   View,
   StyleSheet,
   StatusBar,
-  SafeAreaView,
   ScrollView,
   useWindowDimensions,
   InteractionManager,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
+import responsive from '../../utils/responsive';
 
 interface ActiveCallScreenProps {
   // 추후 통화 관련 props 추가 가능
@@ -17,7 +18,7 @@ interface ActiveCallScreenProps {
 export const ActiveCallScreen = React.memo(({}: ActiveCallScreenProps) => {
   const { width } = useWindowDimensions();
   const isTablet = width > 600;
-  const MAX_WIDTH = isTablet ? 420 : 360;
+  const MAX_WIDTH = responsive(isTablet ? 420 : 360);
   const [isInteractionComplete, setIsInteractionComplete] = useState(false);
 
   useEffect(() => {
@@ -68,9 +69,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#60584d',
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 70,
-    paddingBottom: 120,
+    paddingHorizontal: responsive(16),
+    paddingTop: responsive(70),
+    paddingBottom: responsive(120),
     alignItems: 'center' as any,
     flexGrow: 1,
   },
@@ -80,14 +81,14 @@ const styles = StyleSheet.create({
     alignItems: 'center' as any,
   },
   appLogo: {
-    width: 232,
-    height: 232,
-    marginTop: 100,
-    marginBottom: 24,
+    width: responsive(232),
+    height: responsive(232),
+    marginTop: responsive(100),
+    marginBottom: responsive(24),
   },
   voiceWaveIcon: {
-    width: 232,
-    height: 115,
+    width: responsive(232),
+    height: responsive(115),
   },
 });
 

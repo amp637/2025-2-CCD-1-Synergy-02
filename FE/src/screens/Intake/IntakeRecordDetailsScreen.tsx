@@ -4,26 +4,21 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   ScrollView,
   useWindowDimensions,
   InteractionManager,
   StatusBar,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import Svg, { Circle } from 'react-native-svg';
+import responsive from '../../utils/responsive';
 
-// 상단 헤더 컴포넌트
-const AppHeader = ({ title }: { title: string }) => (
-  <View style={styles.header}>
-    <Text style={styles.headerTitle}>{title}</Text>
-  </View>
-);
 
 // 원형 진행률 그래프 컴포넌트
 const CircularProgress = ({ percentage }: { percentage: number }) => {
-  const size = 60;
-  const strokeWidth = 4;
+  const size = responsive(60);
+  const strokeWidth = responsive(4);
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const progress = (percentage / 100) * circumference;
@@ -69,7 +64,8 @@ const IntakeRecordDetailsScreen = React.memo(({ onExit }: IntakeRecordDetailsScr
   const [isInteractionComplete, setIsInteractionComplete] = useState(false);
   const { width } = useWindowDimensions();
   const isTablet = width > 600;
-  const MAX_WIDTH = isTablet ? 420 : 360;
+  const MAX_WIDTH = responsive(isTablet ? 420 : 360);
+  const insets = useSafeAreaInsets();
 
   // 화면 전환 애니메이션 이후에 실행
   useEffect(() => {
@@ -86,14 +82,18 @@ const IntakeRecordDetailsScreen = React.memo(({ onExit }: IntakeRecordDetailsScr
   }, [onExit]);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['bottom']}>
       <StatusBar barStyle="dark-content" />
       
       {/* 상단 헤더 - 고정 */}
-      <AppHeader title="상세 기록" />
+      <View style={[styles.header, { paddingTop: insets.top }]}>
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>상세 기록</Text>
+        </View>
+      </View>
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + responsive(20) }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.pageWrapper, { maxWidth: MAX_WIDTH }]}>
@@ -265,23 +265,24 @@ const styles = StyleSheet.create({
   },
   header: {
     width: '100%',
-    height: 56,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: responsive(1),
+    borderBottomColor: '#EAEAEA',
+  },
+  headerContent: {
+    minHeight: responsive(56),
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
-    borderBottomWidth: 1,
-    borderBottomColor: '#EAEAEA',
-    backgroundColor: '#FFFFFF',
   },
   headerTitle: {
     fontWeight: '700' as '700',
-    fontSize: 27,
+    fontSize: responsive(27),
     color: '#1A1A1A',
-    lineHeight: 32.4,
+    lineHeight: responsive(32.4),
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 24,
-    paddingBottom: 120, // 하단 버튼 공간 확보
+    paddingHorizontal: responsive(16),
+    paddingTop: responsive(24),
     alignItems: 'center' as any,
   },
   pageWrapper: {
@@ -290,44 +291,44 @@ const styles = StyleSheet.create({
   },
   medicineInfoSection: {
     width: '100%',
-    marginBottom: 15,
+    marginBottom: responsive(15),
   },
   medicineTag: {
     backgroundColor: '#FFF4C9',
-    borderWidth: 1,
+    borderWidth: responsive(1),
     borderColor: '#545045',
-    borderRadius: 15,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    borderRadius: responsive(15),
+    paddingHorizontal: responsive(16),
+    paddingVertical: responsive(8),
     alignSelf: 'flex-start',
-    marginBottom: 8,
+    marginBottom: responsive(8),
   },
   medicineTagText: {
     fontWeight: '700' as '700',
-    fontSize: 24,
+    fontSize: responsive(24),
     color: '#545045',
-    lineHeight: 28.8,
+    lineHeight: responsive(28.8),
   },
   hospitalInfo: {
     fontWeight: '700' as '700',
-    fontSize: 32,
+    fontSize: responsive(32),
     color: '#666666',
-    lineHeight: 38.4,
-    marginBottom: 4,
+    lineHeight: responsive(38.4),
+    marginBottom: responsive(4),
   },
   dateText: {
     fontWeight: '400' as '400',
-    fontSize: 14,
+    fontSize: responsive(14),
     color: '#6A7282',
-    lineHeight: 16.8,
+    lineHeight: responsive(16.8),
   },
   progressCard: {
     width: '100%',
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    paddingVertical: 9,
-    paddingHorizontal: 19,
-    marginBottom: 8,
+    borderRadius: responsive(12),
+    paddingVertical: responsive(9),
+    paddingHorizontal: responsive(19),
+    marginBottom: responsive(8),
   },
   progressContent: {
     flexDirection: 'row' as any,
@@ -339,15 +340,15 @@ const styles = StyleSheet.create({
   },
   progressLabel: {
     fontWeight: '700' as '700',
-    fontSize: 14,
+    fontSize: responsive(14),
     color: '#364153',
-    lineHeight: 16.8,
-    marginBottom: 2,
+    lineHeight: responsive(16.8),
+    marginBottom: responsive(2),
   },
   circularProgressContainer: {
     position: 'relative',
-    width: 60,
-    height: 60,
+    width: responsive(60),
+    height: responsive(60),
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
   },
@@ -362,16 +363,16 @@ const styles = StyleSheet.create({
   },
   progressPercentage: {
     fontWeight: '700' as '700',
-    fontSize: 24,
+    fontSize: responsive(24),
     color: '#101828',
-    lineHeight: 28.8,
+    lineHeight: responsive(28.8),
   },
   statsContainer: {
     flexDirection: 'row' as any,
-    gap: 12,
+    gap: responsive(12),
     flex: 1,
     justifyContent: 'space-around',
-    marginLeft: 16,
+    marginLeft: responsive(16),
   },
   statItem: {
     alignItems: 'center' as any,
@@ -380,35 +381,35 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontWeight: '400' as '400',
-    fontSize: 11,
+    fontSize: responsive(11),
     color: '#364153',
-    lineHeight: 13,
-    marginBottom: 6,
+    lineHeight: responsive(13),
+    marginBottom: responsive(6),
     textAlign: 'center',
   },
   statValue: {
     fontWeight: '700' as '700',
-    fontSize: 28,
+    fontSize: responsive(28),
     color: '#101828',
-    lineHeight: 33.6,
+    lineHeight: responsive(33.6),
   },
   medicationCard: {
     width: '100%',
     backgroundColor: '#FFFFFF',
-    borderRadius: 11,
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    marginBottom: 8,
+    borderRadius: responsive(11),
+    paddingVertical: responsive(12),
+    paddingHorizontal: responsive(18),
+    marginBottom: responsive(8),
   },
   medicationItemWrapper: {
     flexDirection: 'row' as any,
-    marginBottom: 12,
+    marginBottom: responsive(12),
   },
   medicationLeftBar: {
-    width: 3,
+    width: responsive(3),
     alignSelf: 'stretch',
     backgroundColor: '#60584D',
-    marginRight: 14,
+    marginRight: responsive(14),
   },
   medicationContentWrapper: {
     flex: 1,
@@ -422,143 +423,143 @@ const styles = StyleSheet.create({
   medicationHeader: {
     flexDirection: 'row' as any,
     alignItems: 'center' as any,
-    marginBottom: 6,
+    marginBottom: responsive(6),
   },
   medicationNumber: {
     fontWeight: '400' as '400',
-    fontSize: 20,
+    fontSize: responsive(20),
     color: '#99A1AF',
-    lineHeight: 28,
-    marginRight: 10,
+    lineHeight: responsive(28),
+    marginRight: responsive(10),
   },
   medicationTypeTag: {
     backgroundColor: '#FFEDA5',
-    borderRadius: 25,
-    paddingHorizontal: 16,
-    paddingVertical: 6,
+    borderRadius: responsive(25),
+    paddingHorizontal: responsive(16),
+    paddingVertical: responsive(6),
   },
   medicationTypeText: {
     fontWeight: '700' as '700',
-    fontSize: 16,
+    fontSize: responsive(16),
     color: '#60584D',
-    lineHeight: 20,
+    lineHeight: responsive(20),
   },
   medicationName: {
     fontWeight: '700' as '700',
-    fontSize: 18,
+    fontSize: responsive(18),
     color: '#60584D',
-    lineHeight: 24,
+    lineHeight: responsive(24),
   },
   medicationDescription: {
     backgroundColor: '#F9FAFB',
-    borderRadius: 4,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    marginTop: 8,
+    borderRadius: responsive(4),
+    paddingHorizontal: responsive(18),
+    paddingVertical: responsive(10),
+    marginTop: responsive(8),
   },
   medicationDescriptionText: {
     fontWeight: '400' as '400',
-    fontSize: 15,
+    fontSize: responsive(15),
     color: '#364153',
-    lineHeight: 21,
+    lineHeight: responsive(21),
   },
   sideEffectCard: {
     width: '100%',
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    marginBottom: 8,
+    borderRadius: responsive(12),
+    paddingVertical: responsive(10),
+    paddingHorizontal: responsive(15),
+    marginBottom: responsive(8),
   },
   sideEffectSection: {
     width: '100%',
   },
   sideEffectItem: {
-    paddingVertical: 8,
+    paddingVertical: responsive(8),
   },
   sideEffectWeek: {
     fontWeight: '700' as '700',
-    fontSize: 14,
+    fontSize: responsive(14),
     color: '#364153',
-    lineHeight: 19,
-    marginBottom: 8,
+    lineHeight: responsive(19),
+    marginBottom: responsive(8),
   },
   sideEffectContent: {
     backgroundColor: '#EAEAEA',
-    borderRadius: 18,
-    paddingHorizontal: 18,
-    paddingVertical: 8,
+    borderRadius: responsive(18),
+    paddingHorizontal: responsive(18),
+    paddingVertical: responsive(8),
   },
   sideEffectText: {
     fontWeight: '400' as '400',
-    fontSize: 14,
+    fontSize: responsive(14),
     color: '#364153',
-    lineHeight: 16.8,
+    lineHeight: responsive(16.8),
   },
   sideEffectDivider: {
-    height: 1,
+    height: responsive(1),
     backgroundColor: '#B8B5B5',
-    marginVertical: 8,
+    marginVertical: responsive(8),
   },
   summaryCard: {
     width: '100%',
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 15,
-    marginBottom: 20,
+    borderRadius: responsive(12),
+    paddingVertical: responsive(14),
+    paddingHorizontal: responsive(15),
+    marginBottom: responsive(20),
   },
   summaryHeader: {
     flexDirection: 'row' as any,
     alignItems: 'center' as any,
-    marginBottom: 16,
+    marginBottom: responsive(16),
   },
   summaryLogo: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: responsive(60),
+    height: responsive(60),
+    borderRadius: responsive(30),
     backgroundColor: '#60584D',
-    marginRight: 16,
+    marginRight: responsive(16),
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
   },
   summaryLogoImage: {
-    width: 48,
-    height: 48,
+    width: responsive(48),
+    height: responsive(48),
   },
   summaryTitle: {
     fontWeight: '700' as '700',
-    fontSize: 22,
+    fontSize: responsive(22),
     color: '#000000',
-    lineHeight: 26.4,
+    lineHeight: responsive(26.4),
   },
   summaryText: {
     fontWeight: '700' as '700',
-    fontSize: 16,
+    fontSize: responsive(16),
     color: '#141313',
-    lineHeight: 20,
+    lineHeight: responsive(20),
   },
   exitButtonContainer: {
     position: 'absolute',
-    left: 16,
-    right: 16,
-    bottom: 36,
+    left: responsive(16),
+    right: responsive(16),
+    bottom: responsive(36),
     alignItems: 'center' as any,
   },
   exitButton: {
     width: '100%',
-    maxWidth: 360,
-    height: 66,
+    maxWidth: responsive(360),
+    height: responsive(66),
     backgroundColor: '#60584D',
-    borderRadius: 200,
+    borderRadius: responsive(200),
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
   },
   exitButtonText: {
     fontWeight: '700' as '700',
-    fontSize: 27,
+    fontSize: responsive(27),
     color: '#FFFFFF',
-    lineHeight: 32.4,
+    lineHeight: responsive(32.4),
   },
 });
 

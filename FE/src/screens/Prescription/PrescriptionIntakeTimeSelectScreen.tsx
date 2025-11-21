@@ -6,10 +6,11 @@ import {
   StyleSheet,
   Image,
   ScrollView,
-  SafeAreaView,
   useWindowDimensions,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import responsive from '../../utils/responsive';
 
 type TimePeriod = 'breakfast' | 'lunch' | 'dinner' | 'bedtime';
 
@@ -34,7 +35,8 @@ export default function PrescriptionIntakeTimeSelectScreen({ onNext }: Prescript
   const [selectedTimePeriods, setSelectedTimePeriods] = useState<TimePeriod[]>(['breakfast']); // 배열로 변경 (중복 선택 가능)
   const { width } = useWindowDimensions();
   const isTablet = width > 600;
-  const MAX_WIDTH = isTablet ? 420 : 360;
+  const MAX_WIDTH = responsive(isTablet ? 420 : 360);
+  const insets = useSafeAreaInsets();
 
   const isNextButtonActive = selectedTimePeriods.length > 0;
 
@@ -59,16 +61,18 @@ export default function PrescriptionIntakeTimeSelectScreen({ onNext }: Prescript
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['bottom']}>
       <StatusBar style="dark" />
       
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerText}>복약 시간대 설정</Text>
+      <View style={[styles.header, { paddingTop: insets.top }]}>
+        <View style={styles.headerContent}>
+          <Text style={styles.headerText}>복약 시간대 설정</Text>
+        </View>
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + responsive(100) }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.pageWrapper, { maxWidth: MAX_WIDTH }]}>
@@ -113,7 +117,7 @@ export default function PrescriptionIntakeTimeSelectScreen({ onNext }: Prescript
       </ScrollView>
 
       {/* Next Button */}
-      <View style={styles.buttonContainer}>
+      <View style={[styles.buttonContainer, { bottom: insets.bottom + responsive(36) }]}>
         <TouchableOpacity
           style={[
             styles.nextButton,
@@ -136,24 +140,25 @@ const styles = StyleSheet.create({
   },
   header: {
     width: '100%',
-    height: 56,
-    justifyContent: 'center' as any,
-    alignItems: 'center' as any,
     backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
+    borderBottomWidth: responsive(1),
     borderBottomColor: '#EAEAEA',
   },
+  headerContent: {
+    minHeight: responsive(56),
+    justifyContent: 'center' as any,
+    alignItems: 'center' as any,
+  },
   headerText: {
-    fontSize: 27,
+    fontSize: responsive(27),
     fontWeight: '700' as any,
     color: '#1A1A1A',
-    lineHeight: 32.4,
+    lineHeight: responsive(32.4),
     textAlign: 'center',
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 48,
-    paddingBottom: 100,
+    paddingHorizontal: responsive(16),
+    paddingTop: responsive(48),
     alignItems: 'center' as any,
     flexGrow: 1,
   },
@@ -166,12 +171,12 @@ const styles = StyleSheet.create({
   },
   timeButton: {
     width: '100%',
-    height: 110,
-    borderRadius: 24,
+    height: responsive(110),
+    borderRadius: responsive(24),
     flexDirection: 'row' as any,
     alignItems: 'center' as any,
-    paddingHorizontal: 20,
-    marginBottom: 16,
+    paddingHorizontal: responsive(20),
+    marginBottom: responsive(16),
     position: 'relative' as any,
   },
   timeButtonSelected: {
@@ -181,25 +186,25 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffcc02',
   },
   iconContainer: {
-    width: 35,
-    height: 35,
+    width: responsive(35),
+    height: responsive(35),
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
   },
   icon: {
-    width: 32,
-    height: 32,
+    width: responsive(32),
+    height: responsive(32),
   },
   textContainer: {
     flex: 1,
     alignItems: 'center' as any,
     justifyContent: 'center' as any,
-    marginLeft: -47, // 아이콘 너비(35) + 여백(12) = 47, 음수로 설정하여 가운데 정렬
+    marginLeft: responsive(-47), // 아이콘 너비(35) + 여백(12) = 47, 음수로 설정하여 가운데 정렬
   },
   timeButtonText: {
-    fontSize: 48,
+    fontSize: responsive(48),
     fontWeight: '700' as '700',
-    lineHeight: 57.6,
+    lineHeight: responsive(57.6),
   },
   timeButtonTextSelected: {
     color: '#ffffff',
@@ -209,16 +214,15 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     position: 'absolute' as any,
-    left: 16,
-    right: 16,
-    bottom: 36,
+    left: responsive(16),
+    right: responsive(16),
     alignItems: 'center' as any,
   },
   nextButton: {
     width: '100%',
-    maxWidth: 360,
-    height: 66,
-    borderRadius: 200,
+    maxWidth: responsive(360),
+    height: responsive(66),
+    borderRadius: responsive(200),
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
   },
@@ -229,9 +233,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#c4bcb1',
   },
   nextButtonText: {
-    fontSize: 27,
+    fontSize: responsive(27),
     fontWeight: '700' as any,
     color: '#ffffff',
-    lineHeight: 32.4,
+    lineHeight: responsive(32.4),
   },
 });

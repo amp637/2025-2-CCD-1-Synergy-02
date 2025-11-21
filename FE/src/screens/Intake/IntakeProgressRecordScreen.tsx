@@ -4,13 +4,14 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
   ScrollView,
   useWindowDimensions,
   InteractionManager,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
+import responsive from '../../utils/responsive';
 
 // 한글 로케일 설정
 LocaleConfig.locales['kr'] = {
@@ -38,7 +39,8 @@ const IntakeProgressRecordScreen = React.memo(({ recordData, onExit, onDetailRec
   const [isInteractionComplete, setIsInteractionComplete] = useState(false);
   const { width } = useWindowDimensions();
   const isTablet = width > 600;
-  const MAX_WIDTH = isTablet ? 420 : 360;
+  const MAX_WIDTH = responsive(isTablet ? 420 : 360);
+  const insets = useSafeAreaInsets();
 
   // 복용 기록 데이터 (날짜별 상태)
   const markedDates = {
@@ -83,16 +85,18 @@ const IntakeProgressRecordScreen = React.memo(({ recordData, onExit, onDetailRec
   }, [onExit]);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['bottom']}>
       <StatusBar barStyle="dark-content" />
       
       {/* 상단 헤더 - IntakeRecordListScreen과 동일 */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>복약 진행 기록</Text>
+      <View style={[styles.header, { paddingTop: insets.top }]}>
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>복약 진행 기록</Text>
+        </View>
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + responsive(20) }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.pageWrapper, { maxWidth: MAX_WIDTH }]}>
@@ -209,24 +213,25 @@ const styles = StyleSheet.create({
   },
   header: {
     width: '100%',
-    height: 56,
-    borderBottomWidth: 1,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: responsive(1),
     borderBottomColor: '#EAEAEA',
+  },
+  headerContent: {
+    minHeight: responsive(56),
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
-    backgroundColor: '#FFFFFF',
   },
   headerTitle: {
     fontWeight: '700' as '700',
-    fontSize: 27,
+    fontSize: responsive(27),
     color: '#1A1A1A',
-    lineHeight: 32.4,
+    lineHeight: responsive(32.4),
     textAlign: 'center',
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 13,
-    paddingBottom: 100,
+    paddingHorizontal: responsive(16),
+    paddingTop: responsive(13),
     alignItems: 'center' as any,
   },
   pageWrapper: {
@@ -241,66 +246,66 @@ const styles = StyleSheet.create({
     flexDirection: 'row' as any,
     justifyContent: 'space-between' as any,
     alignItems: 'center' as any,
-    marginBottom: 8,
+    marginBottom: responsive(8),
   },
   medicineTag: {
     backgroundColor: '#FFF4C9',
-    borderWidth: 1,
+    borderWidth: responsive(1),
     borderColor: '#545045',
-    borderRadius: 15,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    borderRadius: responsive(15),
+    paddingHorizontal: responsive(16),
+    paddingVertical: responsive(8),
   },
   medicineTagText: {
     fontWeight: '700' as '700',
-    fontSize: 24,
+    fontSize: responsive(24),
     color: '#545045',
-    lineHeight: 28.8,
+    lineHeight: responsive(28.8),
   },
   hospitalInfo: {
     fontWeight: '700' as '700',
-    fontSize: 32,
+    fontSize: responsive(32),
     color: '#666666',
-    lineHeight: 38.4,
-    marginBottom: 4,
+    lineHeight: responsive(38.4),
+    marginBottom: responsive(4),
   },
   dateText: {
     fontWeight: '400' as '400',
-    fontSize: 14,
+    fontSize: responsive(14),
     color: '#6A7282',
-    lineHeight: 16.8,
+    lineHeight: responsive(16.8),
   },
   detailButton: {
     backgroundColor: '#FFCC02',
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    borderRadius: responsive(10),
+    paddingHorizontal: responsive(16),
+    paddingVertical: responsive(10),
   },
   detailButtonText: {
     fontWeight: '700' as '700',
-    fontSize: 17,
+    fontSize: responsive(17),
     color: '#60584D',
-    lineHeight: 20.4,
+    lineHeight: responsive(20.4),
   },
   legendContainer: {
     width: '100%',
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
+    borderRadius: responsive(12),
+    paddingVertical: responsive(14),
+    paddingHorizontal: responsive(14),
     flexDirection: 'row' as any,
     justifyContent: 'space-between' as any,
-    marginBottom: 15,
+    marginBottom: responsive(15),
   },
   legendItem: {
     flexDirection: 'row' as any,
     alignItems: 'center' as any,
-    gap: 8,
+    gap: responsive(8),
   },
   legendCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: responsive(28),
+    height: responsive(28),
+    borderRadius: responsive(14),
   },
   legendAll: {
     backgroundColor: '#A0DB87',
@@ -313,67 +318,67 @@ const styles = StyleSheet.create({
   },
   legendText: {
     fontWeight: '700' as '700',
-    fontSize: 17,
+    fontSize: responsive(17),
     color: '#000000',
-    lineHeight: 20.4,
+    lineHeight: responsive(20.4),
   },
   calendarContainer: {
     width: '100%',
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 10,
+    borderRadius: responsive(12),
+    padding: responsive(10),
   },
   calendarHeaderSection: {
     flexDirection: 'row' as any,
     justifyContent: 'space-between' as any,
     alignItems: 'center' as any,
-    marginBottom: 10,
+    marginBottom: responsive(10),
   },
   calendarTitle: {
     fontWeight: '700' as '700',
-    fontSize: 20,
+    fontSize: responsive(20),
     color: '#364153',
-    lineHeight: 24,
-    marginBottom: 8,
+    lineHeight: responsive(24),
+    marginBottom: responsive(8),
   },
   calendarMonth: {
     fontWeight: '700' as '700',
-    fontSize: 24,
+    fontSize: responsive(24),
     color: '#364153',
-    lineHeight: 28.8,
+    lineHeight: responsive(28.8),
   },
   calendar: {
     backgroundColor: '#EAEAEA',
-    borderRadius: 18,
-    paddingVertical: 10,
+    borderRadius: responsive(18),
+    paddingVertical: responsive(10),
   },
   arrowText: {
-    fontSize: 24,
+    fontSize: responsive(24),
     fontWeight: '700' as '700',
     color: '#000000',
-    paddingHorizontal: 10,
+    paddingHorizontal: responsive(10),
   },
   exitButtonContainer: {
     position: 'absolute',
-    left: 16,
-    right: 16,
-    bottom: 36,
+    left: responsive(16),
+    right: responsive(16),
+    bottom: responsive(36),
     alignItems: 'center' as any,
   },
   exitButton: {
     width: '100%',
-    maxWidth: 360,
-    height: 66,
+    maxWidth: responsive(360),
+    height: responsive(66),
     backgroundColor: '#60584D',
-    borderRadius: 200,
+    borderRadius: responsive(200),
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
   },
   exitButtonText: {
     fontWeight: '700' as '700',
-    fontSize: 27,
+    fontSize: responsive(27),
     color: '#FFFFFF',
-    lineHeight: 32.4,
+    lineHeight: responsive(32.4),
   },
 });
 
