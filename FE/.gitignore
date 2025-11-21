@@ -1,0 +1,63 @@
+# Node
+node_modules/
+
+# Log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Expo / React Native
+.expo/
+.expo-shared/
+web-build/
+dist/
+build/
+ios/
+
+android/app/build/
+android/build/
+android/.gradle/
+android/local.properties
+android/app/*.keystore
+
+# Metro / Babel / Watchman
+*.log
+.bundle/
+.expo/*
+.expo-shared/*
+.buckd/
+.expo-dev-client/
+*.hprof
+*.pack
+*.map
+*.apk
+*.aab
+
+# macOS
+.DS_Store
+
+# VSCode / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment files
+.env
+.env.*
+keys/
+*.pem
+*.p12
+*.key
+*.mobileprovision
+
+# OS & Cache
+Thumbs.db
+*.tmp
+.cache/
+.tmp/
+logs/
+
+# Git merge backup files
+*.orig

@@ -1,0 +1,1525 @@
+openapi: 3.0.3
+info:
+  title: Synergy
+  description: 복약 API 명세서
+  version: v1
+servers:
+  # Added by API Auto Mocking Plugin
+  - description: SwaggerHub API Auto Mocking
+    url: https://virtserver.swaggerhub.com/donggukuniv-480/synergy/v1
+  - url: /api/v1
+    description: 개발 서버
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    AuthRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          example: 홍길동
+        birth:
+          type: string
+          example: "1960-01-01"
+        call:
+          type: string
+          example: "01012341234"
+      required: [name, birth, call]
+      
+    SignUpRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          example: 홍길동
+        birth:
+          type: string
+          example: "1960-01-01"
+        call:
+          type: string
+          example: "01012341234"
+        fcm:
+          type: string
+          example: "dR1zXK..."
+      required: [name, birth, call, fcm]
+        
+    
+    SignupMedicationTimeRequest:
+      type: object
+      properties:
+        uno:
+          type: integer
+          example: 1
+        tno:
+          type: integer
+          example: 1
+      required: [uno, tno]
+
+    UserUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          example: 홍길동
+        birth:
+          type: string
+          example: "1960-01-02"
+        call:
+          type: string
+          example: "01012345678"
+
+    MedicationTimeUpdateRequest:
+      type: object
+      properties:
+        type:
+          type: string
+          example: breakfast
+        time:
+          type: integer
+          example: 7
+      required: [type, time]
+
+    User:
+      type: object
+      properties:
+        uno:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "홍길동"
+        birth:
+          type: string
+          example: "1960-01-01"
+        call:
+          type: string
+          example: "01012341234"
+
+    MedicationTimePreset:
+      type: object
+      properties:
+        tno:
+          type: integer
+          example: 1
+        time:
+          type: integer
+          example: 6
+          
+    UserMedicationTime:
+      type: object
+      properties:
+        utno:
+          type: integer
+          example: 1
+        tno:
+          type: integer
+          example: 1
+        type:
+          type: string
+          example: "breakfast"
+        time:
+          type: integer
+          example: 7
+          
+    AuthResponse:
+      type: object
+      properties:
+        header:
+          $ref: '#/components/schemas/SuccessHeader'
+        body:
+          type: object
+          properties:
+            uno:
+              type: integer
+              example: 1
+              
+    SignupTimeResponse:
+      type: object
+      properties:
+        header:
+          $ref: '#/components/schemas/SuccessHeader'
+        body:
+          type: object
+          properties:
+            uno:
+              type: integer
+              example: 1
+            tno:
+              type: integer
+              example: 1
+
+    UserInfoResponse:
+      type: object
+      properties:
+        header:
+          $ref: '#/components/schemas/SuccessHeader'
+        body:
+          $ref: '#/components/schemas/User'
+
+    UserWithdrawResponse:
+      type: object
+      properties:
+        header:
+          $ref: '#/components/schemas/SuccessHeader'
+        body:
+          type: object
+          properties:
+            uno:
+              type: integer
+              description: "비활성화된 유저 id"
+              example: 1
+
+    MedicationPresetResponse:
+      type: object
+      properties:
+        header:
+          $ref: '#/components/schemas/SuccessHeader'
+        body:
+          type: object
+          properties:
+            times:
+              type: array
+              items:
+                $ref: '#/components/schemas/MedicationTimePreset'
+          example:
+            times:
+              - tno: 1
+                time: 6
+              - tno: 2
+                time: 7
+              - tno: 3
+                time: 8
+              - tno: 4
+                time: 9
+              - tno: 5
+                time: 10
+              - tno: 6
+                time: 11
+            
+    UserMedicationTimeResponse:
+      type: object
+      properties:
+        header:
+          $ref: '#/components/schemas/SuccessHeader'
+        body:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserMedicationTime'
+
+    UserMedicationTimeSingleResponse:
+      type: object
+      properties:
+        header:
+          $ref: '#/components/schemas/SuccessHeader'
+        body:
+          $ref: '#/components/schemas/UserMedicationTime'
+          
+    ErrorResponse:
+      type: object
+      properties:
+        header:
+          $ref: '#/components/schemas/ErrorHeader'
+        body:
+          type: "object"
+          nullable: true
+          example: null
+
+    EventListResponse:
+      type: object
+      properties:
+        header:
+          $ref: '#/components/schemas/SuccessHeader'
+        body:
+          type: object
+          properties:
+            uno:
+              type: integer
+              example: 1
+            event_list:
+              type: array
+              items:
+                type: object
+                properties:
+                  eno:
+                    type: integer
+                    example: 1
+                  umno:
+                    type: integer
+                    example: 1
+                  name:
+                    type: string
+                    example: "alarm"
+                  time:
+                    type: string
+                    format: date-time
+                    example: "2025-10-25 07:00"
+                  hospital:
+                    type: string
+                    example: "가람병원"
+                  category:
+                    type: string
+                    example: "감기약"
+                  description:
+                    type: string
+                    example: "가람병원의 감기약 먹을 시간이에요~"
+                  question:
+                    type: string
+                    example: "감기약에 포함된 약품의 효능은?"
+                  candidate:
+                    type: object
+                    properties:
+                      answer:
+                        type: string
+                        example: "해열제"
+                      wrong:
+                        type: array
+                        items:
+                          type: string
+                        example: ["당뇨치료제", "혈압약", "복통약"]
+
+    EventCheckResponse:
+      type: object
+      properties:
+        header:
+          $ref: '#/components/schemas/SuccessHeader'
+        body:
+          type: object
+          properties:
+            uno:
+              type: integer
+              example: 1
+            eno:
+              type: integer
+              description: "완료 처리된 이벤트 ID"
+              example: 1
+
+    AICallResponse:
+      type: object
+      properties:
+        header:
+          $ref: '#/components/schemas/SuccessHeader'
+        body:
+          type: object
+          properties:
+            umno:
+              type: integer
+              example: 1
+            description:
+              type: string
+              example: "감기약에는 제일와파린정과 슈가메트서방정으로 구성되어 있으며, 제일와파린정은 비타민 K의 혈액 응고 작용을 억제하는 약으로 녹차, 오미자와 같이 먹으면 위험해요, 슈가메트서방정은 인슐린 분비를 촉진하고 당 생성을 감소시키는 약으로 녹차, 오미자와 같이 먹으면 위험해요"
+              
+    UserMedicationItem:
+      type: object
+      properties:
+        umno:
+          type: integer
+          example: 1
+        hospital:
+          type: string
+          example: "당뇨병원"
+        category:
+          type: string
+          example: "당뇨약"
+        taken:
+          type: integer
+          description: "일 약 횟수"
+          example: 2
+        created_at:
+          type: string
+          format: date
+          description: "처방전 등록 날짜"
+          example: "2025-10-01"
+
+    UserMedicationListResponse:
+      type: object
+      properties:
+        header:
+          $ref: '#/components/schemas/SuccessHeader'
+        body:
+          type: object
+          properties:
+            user_medicine_list:
+              type: array
+              items:
+                $ref: '#/components/schemas/UserMedicationItem'
+                
+    MedicationCreateResponse:
+      type: object
+      properties:
+        header:
+          $ref: '#/components/schemas/SuccessHeader'
+        body:
+          type: object
+          properties:
+            umno:
+              type: integer
+              example: 1
+              
+    MedicationCategoryUpdateRequest:
+      type: object
+      properties:
+        category:
+          type: string
+          example: "무좀약"
+      required: [category]
+      
+    MedicationCategoryUpdateResponse:
+      type: object
+      properties:
+        header:
+          $ref: '#/components/schemas/SuccessHeader'
+        body:
+          type: object
+          properties:
+            uno:
+              type: integer
+              example: 1
+            umno:
+              type: integer
+              example: 1
+            category:
+              type: string
+              example: "무좀약"
+
+    MedicationCombinationUpdateRequest:
+      type: object
+      properties:
+        combination:
+          type: string
+          example: "lunch,dinner"
+      required: [combination]
+
+    MedicationCombinationResponse:
+      type: object
+      properties:
+        header:
+          $ref: '#/components/schemas/SuccessHeader'
+        body:
+          type: object
+          properties:
+            uno:
+              type: integer
+              example: 1
+            umno:
+              type: integer
+              example: 1
+            combination:
+              type: string
+              example: "breakfast,lunch"
+              
+    MedicationTimeDetail:
+      type: object
+      properties:
+        uno:
+          type: integer
+          example: 1
+        umno:
+          type: integer
+          example: 1
+        atno:
+          type: integer
+          example: 1
+        type:
+          type: string
+          example: "lunch"
+        time:
+          type: integer
+          example: 12
+          
+    MedicationTimeDetailUpdateRequest:
+      type: object
+      properties:
+        type:
+          type: string
+          example: "lunch"
+        time:
+          type: integer
+          example: 13
+      required: [type, time]
+      
+    MedicationTimeDetailResponse:
+      type: object
+      properties:
+        header:
+          $ref: '#/components/schemas/SuccessHeader'
+        body:
+          $ref: '#/components/schemas/MedicationTimeDetail'
+
+    MedicineItem:
+      type: object
+      properties:
+        mdno:
+          type: integer
+          example: 12
+        name:
+          type: string
+          example: "제일와파린정"
+        classification:
+          type: string
+          example: "항응고제"
+        image:
+          type: string
+          format: uri
+          example: "https://cdn.example.com/med/12.png"
+        description:
+          type: string
+          example: "제일와파린정은 비타민 K의 혈액 응고 작용을 억제하는 약으로 녹차, 오미자와 같이 먹으면 위험해요"
+          
+    MedicineItemWithInfo:
+      allOf:
+        - $ref: '#/components/schemas/MedicineItem'
+        - type: object
+          properties:
+            information:
+              type: string
+              example: "이 약은 당뇨 치료제 입니다."
+        - type: object
+          properties:
+            materials:
+              type: array
+              items:
+                $ref: '#/components/schemas/MedicineMaterial'
+
+    MedicineMaterial:
+        type: object
+        properties:
+          mtno:
+            type: integer
+            example: 2
+          name:
+            type: string
+            example: "녹차"
+
+          
+    MedicineItemWithMaterials:
+      allOf:
+        - $ref: '#/components/schemas/MedicineItem'
+        - type: object
+          properties:
+            materials:
+              type: array
+              items:
+                $ref: '#/components/schemas/MedicineMaterial'
+
+    MedicationDetailResponse:
+      type: object
+      properties:
+        header:
+          $ref: '#/components/schemas/SuccessHeader'
+        body:
+          type: object
+          properties:
+            uno:
+              type: integer
+              example: 1
+            umno:
+              type: integer
+              example: 1
+            hospital:
+              type: string
+              example: "당뇨병원"
+            category:
+              type: string
+              example: "당뇨약"
+            taken:
+              type: integer
+              example: 2
+            combination:
+              type: string
+              example: "breakfast,dinner"
+            medicines:
+              type: array
+              items:
+                $ref: '#/components/schemas/MedicineItemWithInfo'
+                
+    MedicationSummaryResponse:
+      type: object
+      properties:
+        header:
+          $ref: '#/components/schemas/SuccessHeader'
+        body:
+          type: object
+          properties:
+            uno:
+              type: integer
+              example: 1
+            umno:
+              type: integer
+              example: 1
+            hospital:
+              type: string
+              example: "당뇨병원"
+            category:
+              type: string
+              example: "당뇨약"
+            taken:
+              type: integer
+              example: 2
+            medicines:
+              type: array
+              items:
+                $ref: '#/components/schemas/MedicineItemWithMaterials'
+
+    ReportListItem:
+      type: object
+      properties:
+        rno:
+          type: integer
+          example: 1
+        hospital:
+          type: string
+          example: "당뇨병원"
+        category:
+          type: string
+          example: "당뇨약"
+        start_date:
+          type: string
+          format: date
+          example: "2025-10-01"
+        end_date:
+          type: string
+          format: date
+          example: "2025-10-10"
+
+    ReportListResponse:
+      type: object
+      properties:
+        header:
+          $ref: '#/components/schemas/SuccessHeader'
+        body:
+          type: object
+          properties:
+            report_list:
+              type: array
+              items:
+                $ref: '#/components/schemas/ReportListItem'
+                
+    ReportSummaryResponse:
+      type: object
+      properties:
+        header:
+          $ref: '#/components/schemas/SuccessHeader'
+        body:
+          type: object
+          properties:
+            rno:
+              type: integer
+              example: 35
+            hospital:
+              type: string
+              example: "하늘병원"
+            category:
+              type: string
+              example: "감기약"
+            taken:
+              type: integer
+              example: 2
+            start_date:
+              type: string
+              example: "2025-10-01"
+            end_date:
+              type: string
+              example: "2025-10-05"
+            colors:
+              type: array
+              items:
+                type: object
+                properties:
+                  date:
+                    type: string
+                    example: "2025-10-01"
+                  color:
+                    type: string
+                    example: "g"
+
+    ReportDetailResponse:
+      type: object
+      properties:
+        header:
+          $ref: '#/components/schemas/SuccessHeader'
+        body:
+          type: object
+          properties:
+            rno:
+              type: integer
+              example: 35
+            hospital:
+              type: string
+              example: "하늘병원"
+            category:
+              type: string
+              example: "감기약"
+            taken:
+              type: integer
+              example: 2
+            medicine:
+              type: array
+              items:
+                $ref: '#/components/schemas/ReportMedicineWithInfo'
+            cycle:
+              type: array
+              items:
+                $ref: '#/components/schemas/ReportCycle'
+            effects:
+              type: array
+              items:
+                $ref: '#/components/schemas/ReportWeeklyEffect'
+            description:
+              type: string
+              example: "10/1~10/5 감기약 복용 주기 중 진정작용 2회, 피로감 3회, 소화불량, 속쓰림 1회 나타났으며 15회 복약 중 13번 복약 알림을 확인하였으므로 전반적으로 복약 순응도가 굿굿임~~ㅎㅎ"
+    
+    ReportMedicineWithInfo:
+      type: object
+      properties:
+        mdno:
+          type: integer
+          example: 11
+        name:
+          type: string
+          example: "삼남아세트아미노펜정"
+        classification:
+          type: string
+          example: "해열진통제"
+        image:
+          type: string
+          format: uri
+          example: "https://cdn.example.com/med/11.png"
+        information:
+          type: string
+          example: "이 약은 당뇨 치료에 사용됩니다."
+    
+    ReportCycle:
+      type: object
+      properties:
+        start_date:
+          type: string
+          format: date
+          example: "2025-10-01"
+        end_date:
+          type: string
+          format: date
+          example: "2025-10-05"
+        total_cycle:
+          type: integer
+          example: 15
+        cur_cycle:
+          type: integer
+          example: 9
+        save_cycle:
+          type: integer
+          example: 7
+    
+    ReportWeeklyEffect:
+      type: object
+      properties:
+        week:
+          type: integer
+          example: 1
+        effect_list:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReportEffectItemWithNo'
+    
+    ReportEffectItemWithNo:
+      type: object
+      properties:
+        efno:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "졸림, 진정작용"
+        count:
+          type: integer
+          example: 2
+
+                
+    SideEffectItem:
+      type: object
+      properties:
+        efno:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "두통, 어지러움"
+        image:
+          type: string
+          format: uri
+          example: "/path/to/img1.jpg"
+
+    SideEffectListResponse:
+      type: object
+      properties:
+        header:
+          $ref: '#/components/schemas/SuccessHeader'
+        body:
+          type: object
+          properties:
+            effects:
+              type: array
+              items:
+                $ref: '#/components/schemas/SideEffectItem'
+
+    ConditionCreateRequest:
+      type: object
+      properties:
+        effects:
+          type: array
+          items:
+            type: integer
+          description: "기록할 부작용 efno의 ID 목록"
+          example: [1, 4, 8]
+      required: [effects]
+      
+    ConditionRecordItem:
+      type: object
+      properties:
+        efno:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "두통, 어지러움"
+
+    ConditionCreateResponse:
+      type: object
+      properties:
+        header:
+          $ref: '#/components/schemas/SuccessHeader'
+        body:
+          type: object
+          properties:
+            effects:
+              type: array
+              items:
+                $ref: '#/components/schemas/ConditionRecordItem'
+                
+    SuccessHeader:
+      type: object
+      properties:
+        resultCode:
+          type: integer
+          example: 1000
+        resultMsg:
+          type: string
+          example: "요청에 성공하였습니다."
+          
+    ErrorHeader:
+      type: object
+      properties:
+        resultCode:
+          type: integer
+          example: 4001
+        resultMsg:
+          type: string
+          example: "잘못된 요청입니다."
+
+  responses:
+    "400":
+      description: Bad Request (잘못된 요청)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            header: { resultCode: 4000, resultMsg: "입력값이 유효하지 않습니다." }
+            body: null
+    "401":
+      description: Unauthorized (인증 실패)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            header: { resultCode: 4010, resultMsg: "인증 토큰이 유효하지 않습니다." }
+            body: null
+    "404":
+      description: Not Found (리소스를 찾을 수 없음)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            header: { resultCode: 4040, resultMsg: "요청한 리소스를 찾을 수 없습니다." }
+            body: null
+    "500":
+      description: Internal Server Error (서버 내부 오류)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            header: { resultCode: 5000, resultMsg: "서버 내부 오류가 발생했습니다." }
+            body: null
+
+security:
+  - bearerAuth: []
+
+paths:
+  /users:
+    post:
+      tags: [User]
+      summary: "[1단계] 회원가입 - 사용자 정보 등록"
+      description: "신규 사용자 정보를 등록하고 jwt 토큰과 uno를 반환받습니다."
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignUpRequest'
+      responses:
+        "201":
+          description: 회원가입 1단계 성공
+          headers:
+            Authorization:
+              description: "Bearer {access_token}"
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        "400":
+          $ref: '#/components/responses/400'
+        "500":
+          $ref: '#/components/responses/500'
+
+  /users/medication-times:
+    post:
+      tags: [User]
+      summary: "[2단계] 회원가입 - 복약 시간 설정"
+      description: "uno와 tno를 전송하여 복약 시간을 설정합니다."
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignupMedicationTimeRequest'
+      responses:
+        "201":
+          description: 회원가입 2단계(복약 시간 설정) 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignupTimeResponse'
+        "400":
+          $ref: '#/components/responses/400'
+        "500":
+          $ref: '#/components/responses/500'
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: 로그인
+      description: "사용자 정보로 로그인하고 JWT 토큰을 발급받습니다."
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthRequest'
+      responses:
+        "200":
+          description: 로그인 성공
+          headers:
+            Authorization:
+              description: "Bearer {access_token}"
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        "400":
+          $ref: '#/components/responses/400'
+        "500":
+          $ref: '#/components/responses/500'
+
+  /users/me:
+    get:
+      tags: [User]
+      summary: 내 정보 조회
+      description: "현재 인증된 사용자의 정보를 조회합니다."
+      responses:
+        "200":
+          description: "회원 정보 조회 성공"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserInfoResponse'
+        "401":
+          $ref: '#/components/responses/401'
+        "404":
+          $ref: '#/components/responses/404'
+        "500":
+          $ref: '#/components/responses/500'
+    
+    patch:
+      tags: [User]
+      summary: 내 정보 수정
+      description: "현재 사용자의 정보를 수정합니다."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdateRequest'
+      responses:
+        "200":
+          description: "회원 정보 수정 성공"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserInfoResponse'
+        "400":
+          $ref: '#/components/responses/400'
+        "401":
+          $ref: '#/components/responses/401'
+        "500":
+          $ref: '#/components/responses/500'
+
+    delete:
+      tags: [User]
+      summary: 회원 탈퇴
+      description: "현재 인증된 사용자의 계정을 비활성화(탈퇴)합니다."
+      responses:
+        "200":
+          description: "회원 탈퇴 성공"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserWithdrawResponse'
+        "401":
+          $ref: '#/components/responses/401'
+        "500":
+          $ref: '#/components/responses/500'
+
+  /medication-time-presets:
+    get:
+      tags: [Preset]
+      summary: 복약 설정 시간 프리셋 조회
+      description: "사용자가 설정할 수 있는 복약 시간의 프리셋을 조회합니다."
+      parameters:
+        - name: type
+          in: query
+          description: "시간 타입 (e.g. breakfast)"
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "프리셋 조회 성공"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MedicationPresetResponse'
+        "500":
+          $ref: '#/components/responses/500'
+
+  /users/me/medication-times:
+    get:
+      tags: [User]
+      summary: 내 복약 시간 조회
+      description: "현재 사용자의 복약 설정 시간을 조회합니다."
+      parameters:
+        - name: type
+          in: query
+          description: "조회할 복약 타입 (e.g. breakfast)"
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "복약 스케줄 조회 성공"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserMedicationTimeResponse'
+        "401":
+          $ref: '#/components/responses/401'
+        "500":
+          $ref: '#/components/responses/500'
+  
+  /users/me/medication-times/{utno}:
+    patch:
+      tags: [User]
+      summary: 내 복약 시간 수정
+      description: "현재 사용자의 특정 복약 설정 시간(utno)을 수정합니다."
+      parameters:
+        - name: utno
+          in: path
+          description: "수정할 복약 시간의 고유 ID"
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MedicationTimeUpdateRequest'
+      responses:
+        "200":
+          description: "복약 시간 수정 성공"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserMedicationTimeSingleResponse'
+        "400":
+          $ref: '#/components/responses/400'
+        "401":
+          $ref: '#/components/responses/401'
+        "404":
+          $ref: '#/components/responses/404'
+        "500":
+          $ref: '#/components/responses/500'
+          
+  /users/me/events:
+    get:
+      tags: [Event]
+      summary: 내 일간 이벤트 목록 조회
+      description: "오늘 날짜의 내 이벤트 목록을 조회합니다."
+      responses:
+        "200":
+          description: "일간 이벤트 조회 성공"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventListResponse'
+        "401":
+          $ref: '#/components/responses/401'
+        "500":
+          $ref: '#/components/responses/500'
+
+
+  /users/me/events/{eno}:
+    post:
+      tags: [Event]
+      summary: 내 이벤트 완료 처리
+      description: "특정 이벤트를 완료 상태로 처리합니다."
+      parameters:
+        - name: eno
+          in: path
+          description: "완료 처리할 이벤트의 고유 ID"
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "이벤트 완료 처리 성공"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventCheckResponse'
+        "400":
+          description: "잘못된 eno"
+          $ref: '#/components/responses/400'
+        "401":
+          $ref: '#/components/responses/401'
+        "404":
+          description: "해당 eno의 이벤트를 찾을 수 없음"
+          $ref: '#/components/responses/404'
+        "500":
+          $ref: '#/components/responses/500'
+
+  /users/me/events/{umno}:
+    get:
+      tags: [Event]
+      summary: AI 전화 스크립트 수신
+      description: "특정 복약 인덱스(umno)에 대한 AI 전화 안내 스크립트를 조회합니다."
+      parameters:
+        - name: umno
+          in: path
+          description: "조회할 복약 인덱스의 고유 ID"
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "AI 전화 스크립트 조회 성공"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AICallResponse'
+        "401":
+          $ref: '#/components/responses/401'
+        "404":
+          description: "해당 umno의 복약 이벤트를 찾을 수 없음"
+          $ref: '#/components/responses/404'
+        "500":
+          $ref: '#/components/responses/500'
+          
+  /medications:
+    post:
+      tags: [Medication]
+      summary: 새 복약 정보 등록 (이미지 업로드)
+      description: "처방전 이미지를 업로드하여 새 복약 정보(umno)를 생성합니다."
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image:
+                  type: string
+                  format: binary
+                  description: "OCR 대상 처방전 이미지 파일"
+      responses:
+        "201":
+          description: "이미지 업로드 및 복약 정보 생성 성공"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MedicationCreateResponse'
+        "400":
+          $ref: '#/components/responses/400'
+        "401":
+          $ref: '#/components/responses/401'
+        "500":
+          $ref: '#/components/responses/500'
+          
+  /users/me/medications:
+    get:
+      tags: [User]
+      summary: 내 활성 복약 목록 조회
+      description: "현재 인증된 사용자의 '오늘' 복용해야 할 활성 상태의 복약 목록을 조회합니다."
+      responses:
+        "200":
+          description: "활성 복약 목록 조회 성공"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserMedicationListResponse'
+        "401":
+          $ref: '#/components/responses/401'
+        "500":
+          $ref: '#/components/responses/500'
+
+  /users/me/medications/{umno}/combination:
+    get:
+      tags: [Medication]
+      summary: 복약 알림 시간 조합 조회
+      description: "특정 복약 정보(umno)에 설정된 알림 시간 조합(e.g., breakfast,lunch)을 조회합니다."
+      parameters:
+        - name: umno
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "알림 조합 조회 성공"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MedicationCombinationResponse'
+        "401":
+          $ref: '#/components/responses/401'
+        "404":
+          $ref: '#/components/responses/404'
+        "500":
+          $ref: '#/components/responses/500'
+          
+    put:
+      tags: [Medication]
+      summary: 복약 알림 시간 조합 수정
+      description: "특정 복약 정보(umno)의 알림 시간 조합을 덮어씁니다. (PUT 사용)"
+      parameters:
+        - name: umno
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MedicationCombinationUpdateRequest'
+      responses:
+        "200":
+          description: "알림 조합 수정 성공"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MedicationCombinationResponse'
+        "400":
+          $ref: '#/components/responses/400'
+        "401":
+          $ref: '#/components/responses/401'
+        "404":
+          $ref: '#/components/responses/404'
+        "500":
+          $ref: '#/components/responses/500'
+          
+  /users/me/medications/{umno}/summary:
+    get:
+      tags: [Medication]
+      summary: 복약 정보 요약 조회
+      description: "특정 복약 정보(umno)의 요약 정보를 조회합니다."
+      parameters:
+        - name: umno
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "복약 요약 정보 조회 성공"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MedicationSummaryResponse'
+        "401":
+          $ref: '#/components/responses/401'
+        "404":
+          $ref: '#/components/responses/404'
+        "500":
+          $ref: '#/components/responses/500'
+          
+  /users/me/medications/{umno}:
+    patch:
+      tags: [Medication]
+      summary: 복약 정보 부분 수정 (카테고리)
+      description: "특정 복약 정보(umno)의 카테고리 정보를 수정합니다."
+      parameters:
+        - name: umno
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MedicationCategoryUpdateRequest'
+      responses:
+        "200":
+          description: "복약 카테고리 수정 성공"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MedicationCategoryUpdateResponse'
+        "400":
+          $ref: '#/components/responses/400'
+        "401":
+          $ref: '#/components/responses/401'
+        "404":
+          $ref: '#/components/responses/404'
+        "500":
+          $ref: '#/components/responses/500'
+    
+    get:
+      tags: [Medication]
+      summary: 복약 정보 상세 조회
+      description: "특정 복약 정보(umno)의 상세 내용을 조회합니다."
+      parameters:
+        - name: umno
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "상세 복약 정보 조회 성공"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MedicationDetailResponse'
+        "401":
+          $ref: '#/components/responses/401'
+        "404":
+          $ref: '#/components/responses/404'
+        "500":
+          $ref: '#/components/responses/500'
+          
+  /users/me/medications/{umno}/times:
+    get:
+      tags: [Medication]
+      summary: 개별 복약 시간 조회
+      description: "특정 복약 정보(umno)에 연결된 개별 복약 시간(atno)을 조회합니다."
+      parameters:
+        - name: umno
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: type
+          in: query
+          description: "특정 타입(e.g., lunch)만 필터링"
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "개별 복약 시간 조회 성공"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MedicationTimeDetailResponse'
+        "401":
+          $ref: '#/components/responses/401'
+        "404":
+          $ref: '#/components/responses/404'
+        "500":
+          $ref: '#/components/responses/500'
+
+  /users/me/medications/{umno}/times/{atno}:
+    patch:
+      tags: [Medication]
+      summary: 개별 복약 시간 수정
+      description: "특정 복약(umno)의 특정 시간(atno)을 수정합니다."
+      parameters:
+        - name: umno
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: atno
+          in: path
+          description: "수정할 복약 시간 ID"
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MedicationTimeDetailUpdateRequest'
+      responses:
+        "200":
+          description: "개별 복약 시간 수정 성공"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MedicationTimeDetailResponse'
+        "400":
+          $ref: '#/components/responses/400'
+        "401":
+          $ref: '#/components/responses/401'
+        "404":
+          $ref: '#/components/responses/404'
+        "500":
+          $ref: '#/components/responses/500'
+          
+  /users/me/reports:
+    get:
+      tags: [Report]
+      summary: 내 리포트 목록 조회
+      description: "현재 인증된 사용자의 완료된 복약 리포트 목록을 조회합니다."
+      responses:
+        "200":
+          description: "리포트 목록 조회 성공"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportListResponse'
+        "401":
+          $ref: '#/components/responses/401'
+        "500":
+          $ref: '#/components/responses/500'
+          
+  /users/me/reports/{rno}/summary:
+    get:
+      tags: [Report]
+      summary: 내 리포트 요약 조회
+      description: "특정 리포트(rno)의 요약 내용을 조회합니다."
+      parameters:
+        - name: rno
+          in: path
+          description: "조회할 리포트의 고유 ID"
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "리포트 요약 조회 성공"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportSummaryResponse'
+        "401":
+          $ref: '#/components/responses/401'
+        "404":
+          $ref: '#/components/responses/404'
+        "500":
+          $ref: '#/components/responses/500'
+
+  /users/me/reports/{rno}:
+    get:
+      tags: [Report]
+      summary: 내 리포트 상세 조회
+      description: "특정 리포트(rno)의 상세 내용을 조회합니다. (약품, 부작용 통계 포함)"
+      parameters:
+        - name: rno
+          in: path
+          description: "조회할 리포트의 고유 ID"
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: "리포트 상세 조회 성공"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportDetailResponse'
+        "401":
+          $ref: '#/components/responses/401'
+        "404":
+          $ref: '#/components/responses/404'
+        "500":
+          $ref: '#/components/responses/500'
+  
+  /side-effects-presets:
+    get:
+      tags: [Preset]
+      summary: 부작용 목록 프리셋 조회 
+      description: "사용자가 선택할 수 있는 부작용의 전체 목록을 조회합니다."
+      responses:
+        "200":
+          description: "부작용 목록 조회 성공"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SideEffectListResponse'
+        "500":
+          $ref: '#/components/responses/500'
+
+  /users/me/side-effects:
+    post:
+      tags: [SideEffect]
+      summary: 내 부작용 기록 등록
+      description: "현재 인증된 사용자가 경험한 부작용(efno 목록)을 서버에 기록합니다."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConditionCreateRequest'
+      responses:
+        "201":
+          description: "부작용 기록 성공"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConditionCreateResponse'
+        "400":
+          $ref: '#/components/responses/400'
+        "401":
+          $ref: '#/components/responses/401'
+        "500":
+          $ref: '#/components/responses/500'

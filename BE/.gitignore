@@ -1,0 +1,37 @@
+# Gradle
+/build/
+.gradle/
+!gradle/wrapper/gradle-wrapper.jar
+bin/
+/uploads/
+
+# IntelliJ (Old)
+out/
+
+# Logs & Temp
+*.log
+*.tmp
+*.out
+logs/
+
+#  IDE & OS
+# IntelliJ
+.idea/
+*.iml
+*.iws
+
+# macOS / Windows
+.DS_Store
+Thumbs.db
+
+#  Secrets
+.env
+application-local.yml
+application-local.properties
+application-secret.yml
+application-secret.properties
+service-account-key.json
+/src/main/resources/fcm-token.json
+
+# Test files
+test_tts_audio.html
