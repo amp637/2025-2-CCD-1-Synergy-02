@@ -11,8 +11,6 @@ import java.util.List;
 
 public interface MedicineRepository extends JpaRepository<MedicineEntity, Long> {
 
-    Optional<MedicineEntity> findByName(String name);
-
     MedicineEntity findByMdno(Long mdno);
 
     // 퀴즈 오답용

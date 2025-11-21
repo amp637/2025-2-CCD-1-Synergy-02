@@ -62,7 +62,6 @@ public class EventController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Invalid or expired token");
         }
 
-        Long uno = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         updateEventStatusResponseDTO result = eventService.updateEventStatus(eno);
         BaseResponse<updateEventStatusResponseDTO> response =
                 new BaseResponse<>(1000, "이벤트 상태 업데이트 성공", result);
