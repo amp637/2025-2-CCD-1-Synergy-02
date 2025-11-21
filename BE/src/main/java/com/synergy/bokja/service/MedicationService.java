@@ -1,19 +1,31 @@
 package com.synergy.bokja.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.synergy.bokja.dto.*;
+import com.synergy.bokja.dto.ocr.*;
 import com.synergy.bokja.entity.*;
 import com.synergy.bokja.repository.*;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
-import java.sql.Date;
-import java.sql.Timestamp;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.text.Normalizer;
-import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -30,244 +42,806 @@ public class MedicationService {
     private final QuizOptionRepository quizOptionRepository;
     private final AlarmCombRepository alarmCombRepository;
     private final CombinationRepository combinationRepository;
+    private final TtsService ttsService;
+    private final MaterialRepository materialRepository;
+    private final EventNameRepository eventNameRepository;
+    private final AlarmTimeRepository alarmTimeRepository;
+    private final UserTimeRepository userTimeRepository;
+    private final TimeRepository timeRepository;
+    private final ReportRepository reportRepository;
+
+    private final ObjectMapper objectMapper;
+
+    @Value("${file.upload-dir}")
+    private String uploadDir;
+
+    @Value("${python.script.ocr}")
+    private String ocrScriptPath;
+
+    @Value("${python.script.llm}")
+    private String llmScriptPath;
 
     /**
-     * OCR + (임시 LLM 하드코딩) 처리:
-     * - OCR: 약품명/투약량/전체복용횟수/일수 파싱 → user_medicine / user_medicine_item / cycle 저장
-     * - LLM(하드코딩): category, description(2건), quiz(2문항; 보기 "1번"~"4번", 정답 랜덤)
-     * - acno: 1일 복용 횟수 → (전체횟수 ÷ 일수) 환산 후 모드값으로 1~4 정규화하여 매핑 (1→1, 2→6, 3→11, 4→15)
-     * 주의: user_medicine_table의 NOT NULL 컬럼(category, created_at 등)은 최초 INSERT 전에 채운다.
+     * 1. 새 복약 정보 등록(이미지 업로드)
      */
     @Transactional
-    public Long createFromImage(Long uno, String imagePath) {
-        // 0) 사용자 확인
-        userRepository.findById(uno)
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+    public MedicationCreateResponseDTO uploadImg(Long uno, String mode, MultipartFile imageFile) {
 
-        // 1) (모킹) OCR 결과 - 약품명 및 (투약량, 전체복용횟수, 일수)로 교체
-        ExtractedPrescription ext = mockExtractedFromOCR(imagePath);
+        ParsedPrescriptionData parsedData = null;
+        File tempFile = null;
 
-        // 2) 1일 복용 횟수 산정:
-        //    각 항목에 대해 perDay = round(totalCount / days) (days가 0이면 1로 간주) → 1~4 클램프
-        //    여러 약이 있을 경우 perDay의 "모드"를 선택(동률이면 큰 값 우선)
-        int perDayCount = resolvePerDayCountFromTotals(ext.items());
-        long acno = mapDailyCountToAcno(perDayCount);
+        try {
+            // --- MultipartFile을 임시 파일로 저장 ---
+            tempFile = saveTempFile(imageFile);
+            String imagePath = tempFile.getAbsolutePath();
 
-        // 3) user_medicine INSERT (NOT NULL 컬럼 채우기)
-        Timestamp now = Timestamp.from(Instant.now());
-        String initialCategory = "미분류";
+            if(mode.equals("1")){
+                // 처방전 ocr
 
-        UserMedicineEntity um = new UserMedicineEntity();
-        um.getUser().setUno(uno);
-        um.getAlarmComb().setAcno(acno);
-        um.setHospital(ext.hospital());
-        um.setCategory(initialCategory);   // NOT NULL 방지
-        um.setTaken(0);
-        um.setCreated_at(now);             // created_at 세팅
+                // --- 1. 처방전 ocr ---
+                String ocrJsonResult = runPythonScript(ocrScriptPath, imagePath, mode);
+                System.out.println("OCR Result (Mode 1): " + ocrJsonResult);
 
-        userMedicineRepository.save(um);   // umno 발급
+                // --- 2. (수정) OCR 결과(JSON) 파싱 ---
+                IncizorResponse docResponse = objectMapper.readValue(ocrJsonResult, IncizorResponse.class);
 
-        // 4) user_medicine_item INSERT (신규 생성 금지: 마스터에 없으면 예외)
-        for (ExtractedItem it : ext.items()) {
-            Long mdno = requireMedicine(it.name());
-            UserMedicineItemEntity umi = new UserMedicineItemEntity();
-            umi.getUserMedicine().setUmno(um.getUmno());
-            umi.getMedicine().setMdno(mdno);
-            umi.setDescription("각 약품설명(복약안내, 주의사항)");
-            userMedicineItemRepository.save(umi);
-        }
+                // --- 3. (추가) 공통 DTO로 변환 ---
+                parsedData = parseIncizorResult(docResponse);
 
-        // 5) cycle INSERT
-        // - 아이템 간 합산 금지.
-        // - 대표 totalCount(여기서는 최댓값) × 대표 days(최댓값) 으로 total_cycle 산출.
-        //   예: A(1,6,3), B(1,6,3), C(1,3,3) → repTotal=6, repDays=3 → total_cycle = 6*3 = 18
-        int repTotal = 0;
-        int repDays  = 0;
+            } else if (mode.equals("2")) {
+                // 약봉투 ocr
 
-        for (ExtractedItem it : ext.items()) {
-            repTotal = Math.max(repTotal, Math.max(0, it.countTotal()));
-            repDays  = Math.max(repDays,  Math.max(1, it.days()));
-        }
+                // --- Python OCR 스크립트를 실행 (ProcessBuilder) ---
+                String ocrJsonResult = runPythonScript(ocrScriptPath, imagePath, mode);
+                System.out.println("OCR Result (Mode 2): " + ocrJsonResult);
 
-        LocalDate today = LocalDate.now();
-        CycleEntity cycle = new CycleEntity();
-        cycle.getUserMedicine().setUmno(um.getUmno());
-        cycle.setTotalCycle(safeMul(repTotal, repDays));
-        cycle.setCurCycle(0);
-        cycle.setSaveCycle(0);
-        cycle.setStartDate(Date.valueOf(today).toLocalDate());
-        cycle.setEndDate(Date.valueOf(today.plusDays(repDays - 1)).toLocalDate());
-        cycleRepository.save(cycle);
+                // --- OCR 결과(JSON) 파싱 ---
+                OcrResponse ocrResponse = objectMapper.readValue(ocrJsonResult, OcrResponse.class);
+                // --- 파싱된 객체에서 정보 추출 ---
+                parsedData = parseOcrResult(ocrResponse);
+            }
 
-        // 6) (하드코딩) LLM 결과 반영: category / description / quiz
-        applyLlmForMedicationInternal(um.getUmno());
+            if (parsedData == null) {
+                throw new RuntimeException("OCR 파싱에 실패했거나 유효하지 않은 모드입니다.");
+            }
 
-        return um.getUmno();
-    }
+            UserEntity user = userRepository.findByUno(uno);
+            if (user == null) throw new IllegalArgumentException("Invalid uno");
 
-    /** 마스터 테이블 고정: 이름으로 조회, 존재하지 않으면 즉시 예외 (신규 생성 금지) */
-    private Long requireMedicine(String rawName) {
-        String key = normalizeName(rawName);
-        return medicineRepository.findByName(key)
-                .map(MedicineEntity::getMdno)
-                .orElseThrow(() ->
-                        new IllegalStateException("의약품 마스터에 존재하지 않는 약품명입니다: " + key));
-    }
+            // === OCR 약품명 -> DB의 mdno로 매칭 ===
+            List<Long> mdnos = matchMedicinesWithLLM(parsedData.getMedicines());
+            List<MedicineEntity> matchedMeds = medicineRepository.findAllById(mdnos);
 
-    /** 간단 정규화(앞뒤 공백 제거, 다중 공백 1칸) — 필요 시 매핑 테이블로 확장 */
-    private String normalizeName(String s) {
-        if (s == null) return "";
-        return s.trim().replaceAll("\\s+", " ");
-    }
+            // === 병용섭취 주의사항 조회 ===
+            List<CombinationEntity> combinations = findCombinations(matchedMeds);
 
-    /** 여러 약의 perDay(= round(totalCount / days))의 모드 선택. 동률이면 큰 값 우선. 1~4로 클램프. */
-    private int resolvePerDayCountFromTotals(List<ExtractedItem> items) {
-        Map<Integer, Integer> freq = new HashMap<>();
-        for (ExtractedItem it : items) {
-            int days = Math.max(1, it.days());
-            int perDay = (int) Math.round((double) it.countTotal() / days);
-            perDay = clamp(perDay, 1, 4);
-            freq.merge(perDay, 1, Integer::sum);
-        }
-        int best = 1;
-        int bestCnt = -1;
-        for (Map.Entry<Integer, Integer> e : freq.entrySet()) {
-            int v = e.getKey();
-            int c = e.getValue();
-            if (c > bestCnt || (c == bestCnt && v > best)) {
-                best = v;
-                bestCnt = c;
+            // === 대표 카테고리 생성 ===
+            String category = getRepresentativeCategory(matchedMeds);
+
+            // === 사이클 계산 ===
+            ParsedMedicineInfo primaryMed = findPrimaryMedicine(parsedData.getMedicines());
+            int taken = primaryMed.getDoseCount(); // 일 복약 횟수
+            int maxDoseDays = primaryMed.getDoseDays(); // 총 일수
+            int totalCycle = taken * maxDoseDays;
+            AlarmCombEntity alarmComb = mapTakenToAlarmComb(taken);
+
+            // === user_medicine_table 저장 ===
+            UserMedicineEntity newPrescription = UserMedicineEntity.builder()
+                    .user(user)
+                    .category(category)
+                    .hospital(parsedData.getHospitalName())
+                    .alarmComb(alarmComb)
+                    .taken(taken)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+            UserMedicineEntity savedPrescription = userMedicineRepository.save(newPrescription);
+            Long umno = savedPrescription.getUmno();
+
+            // === cycle_table 저장 ===
+            CycleEntity newCycle = CycleEntity.builder()
+                    .userMedicine(savedPrescription) // umno FK
+                    .totalCycle(totalCycle)
+                    .curCycle(0)
+                    .saveCycle(0)
+                    .startDate(LocalDate.now())
+                    .endDate(LocalDate.now().plusDays(maxDoseDays - 1))
+                    .build();
+            cycleRepository.save(newCycle);
+
+            // === report_table 저장 (리포트 뼈대 생성) ===
+            // - userMedicine: 이번에 생성된 복약
+            // - cycle: 이번에 생성된 주기
+            ReportEntity report = ReportEntity.builder()
+                    .userMedicine(savedPrescription)
+                    .cycle(newCycle)
+                    .description("")
+                    .build();
+            reportRepository.save(report);
+
+            // === 퀴즈 생성 ===
+            generateQuizzes(savedPrescription, matchedMeds, combinations, category);
+
+            // === user_medicine_item_table 저장 ===
+            List<String> finalDescriptionList = new ArrayList<>();
+
+            for (MedicineEntity med : matchedMeds) {
+                // LLM으로 최종 설명 생성
+                String finalDescription = createFinalDescription(med, combinations);
+                finalDescriptionList.add(finalDescription);
+
+                UserMedicineItemEntity item = UserMedicineItemEntity.builder()
+                        .userMedicine(savedPrescription) // umno FK
+                        .medicine(med) // mdno FK
+                        .description(finalDescription)
+                        .build();
+                userMedicineItemRepository.save(item);
+            }
+
+            // === description_table 저장 ===
+            String fullDescription = String.join("\n", finalDescriptionList);
+
+            EventNameEntity eventName = eventNameRepository.findById(3L)
+                    .orElseThrow(() -> new IllegalArgumentException("enno=3인 EventName을 찾을 수 없습니다."));
+
+            DescriptionEntity aiDescription = DescriptionEntity.builder()
+                    .userMedicine(savedPrescription) // umno FK
+                    .eventName(eventName) // enno=3 FK
+                    .description(fullDescription) // 합쳐진 전체 설명
+                    .createdAt(LocalDateTime.now())
+                    .build();
+            descriptionRepository.save(aiDescription);
+
+            createInitialAlarmTimes(user, savedPrescription, alarmComb);
+
+            return new MedicationCreateResponseDTO(umno);
+
+        } catch (IOException | InterruptedException e) {
+            // 프로세스 실행 중 예외 처리
+            throw new RuntimeException("Failed to process prescription image", e);
+        } finally {
+            // --- 임시 파일 삭제 ---
+            if (tempFile != null && tempFile.exists()) {
+                tempFile.delete();
             }
         }
-        return best;
     }
 
-    /** acno 매핑: 1→1, 2→6, 3→11, 4→15 */
-    private long mapDailyCountToAcno(int perDayCount) {
-        int v = clamp(perDayCount, 1, 4);
-        return switch (v) {
-            case 1 -> 1L;   // 아침
-            case 2 -> 6L;   // 아침, 저녁
-            case 3 -> 11L;  // 아침, 점심, 저녁
-            case 4 -> 15L;  // 아침, 점심, 저녁, 취침전
-            default -> 11L; // 방어값(3회)
-        };
+    /**
+     * MultipartFile을 서버에 임시 파일로 저장
+     */
+    private File saveTempFile(MultipartFile multipartFile) throws IOException {
+        String originalFileName = multipartFile.getOriginalFilename();
+        String uniqueFileName = UUID.randomUUID().toString() + "_" + originalFileName;
+
+        Path uploadPath = Paths.get(uploadDir);
+        if (!Files.exists(uploadPath)) {
+            Files.createDirectories(uploadPath);
+        }
+
+        Path filePath = uploadPath.resolve(uniqueFileName);
+        multipartFile.transferTo(filePath);
+        return filePath.toFile();
     }
 
-    private int clamp(int v, int lo, int hi) {
-        return Math.max(lo, Math.min(hi, v));
+    /**
+     * Python 스크립트를 실행하고 그 결과를 String(JSON)으로 반환
+     */
+    private String runPythonScript(String scriptPath, String... args) throws IOException, InterruptedException {
+        // 1. 명령어 리스트 생성 ("python3", "script.py", "arg1", "arg2")
+        List<String> command = new java.util.ArrayList<>();
+        command.add("python3"); // (또는 "python")
+        command.add(scriptPath);
+        command.addAll(Arrays.asList(args));
+
+        // 2. 프로세스 빌더 생성 및 시작
+        ProcessBuilder pb = new ProcessBuilder(command);
+        Process process = pb.start();
+
+        // 3. Python의 print() 결과 (stdout) 읽기
+        StringBuilder output = new StringBuilder();
+        BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), "UTF-8")); // UTF-8로 인코딩
+        String line;
+        while ((line = reader.readLine()) != null) {
+            output.append(line);
+        }
+
+        // 4. 프로세스 종료 대기
+        int exitCode = process.waitFor();
+
+        // 5. 에러 처리 (Python 스크립트에서 에러가 났는지 확인)
+        if (exitCode != 0) {
+            BufferedReader errorReader = new BufferedReader(new InputStreamReader(process.getErrorStream(), "UTF-8"));
+            String errorOutput = errorReader.lines().collect(Collectors.joining("\n"));
+            throw new RuntimeException("Python script exited with code " + exitCode + ". Error: " + errorOutput);
+        }
+
+        return output.toString();
     }
 
-    private final EventNameRepository eventNameRepository;
+    private ParsedPrescriptionData parseIncizorResult(IncizorResponse docResponse) {
+        try {
+            // 1. 모든 카테고리/값 리스트 추출
+            List<IncizorCategory> categories = docResponse.getResult().getImages().get(0).getResult().getCl();
 
-    private Long requireEnno(String eventName) {
-        return eventNameRepository.findByName(eventName)
-                .map(EventNameEntity::getEnno)
-                .orElseThrow(() -> new IllegalStateException(
-                        "event_name_table에 존재하지 않는 이벤트명: " + eventName));
-    }
+            // 2. 병원명 찾기 (단일 값)
+            String hospitalName = categories.stream()
+                    .filter(c -> "의료기관 명칭".equals(c.getCategory()))
+                    .findFirst()
+                    .map(IncizorCategory::getValue)
+                    .orElse("병원명 없음"); // (예외 처리)
 
-    /** 카테고리/스크립트/퀴즈(정답 랜덤) 하드코딩 적용 */
-    private static final long ENNO_ALARM = 1L;
-    private static final long ENNO_CALL  = 3L;
+            // 3. 약품 목록 파싱 (리스트)
+            List<ParsedMedicineInfo> medicines = categories.stream()
+                    // 3-1. "처방의약품 명칭" 카테고리만 필터링
+                    .filter(c -> "처방의약품 명칭".equals(c.getCategory()))
+                    .map(medCategory -> {
+                        // 3-2. 약품명 추출
+                        String name = medCategory.getValue();
 
-    private void applyLlmForMedicationInternal(Long umno) {
-        UserMedicineEntity um = Optional.ofNullable(userMedicineRepository.findByUmno(umno))
-                .orElseThrow(() -> new IllegalArgumentException("처방 정보를 찾을 수 없습니다."));
-        um.setCategory("약 카테고리 예시");
-        userMedicineRepository.save(um);
+                        // 3-3. 하위 'sub' 리스트를 Map으로 변환 (검색 편의성)
+                        Map<String, String> subMap = medCategory.getSub().stream()
+                                .collect(Collectors.toMap(
+                                        IncizorCategory::getCategory,
+                                        IncizorCategory::getValue,
+                                        (a, b) -> a // 중복 키가 있으면 첫 번째 값 사용
+                                ));
 
-        Timestamp now = Timestamp.from(Instant.now());
+                        // 3-4. 횟수/일수 추출
+                        int doseCount = Integer.parseInt(subMap.getOrDefault("1일 투여횟수", "0"));
+                        int doseDays = Integer.parseInt(subMap.getOrDefault("총 투약일수", "0"));
 
-        // --- alarm ---
-        DescriptionEntity alarm = new DescriptionEntity();
-        alarm.getUserMedicine().setUmno(umno);
-        alarm.getEventName().setEnno(ENNO_ALARM);
-        alarm.setDescription("복약알림예시스크립트입니다.");
-        alarm.setCreated_at(now.toLocalDateTime());
-        descriptionRepository.save(alarm);
+                        // 3-5. 공통 DTO로 생성 (classification은 null로 둠)
+                        return new ParsedMedicineInfo(name, null, doseCount, doseDays);
+                    })
+                    .collect(Collectors.toList());
 
-        // --- call ---
-        DescriptionEntity call = new DescriptionEntity();
-        call.getUserMedicine().setUmno(umno);
-        call.getEventName().setEnno(ENNO_CALL);
-        call.setDescription("AI전화알림예시스크립트입니다.");
-        call.setCreated_at(now.toLocalDateTime());
-        descriptionRepository.save(call);
+            return new ParsedPrescriptionData(hospitalName, medicines);
 
-        // 퀴즈 생성 로직은 그대로
-        createQuizWithRandomAnswer(umno, "‘감기약’을 복용할 때 병용섭취를 주의해야하는 원료는?");
-        createQuizWithRandomAnswer(umno, "‘감기약’에 포함된 약품의 효능은?");
-    }
-
-    // 상수 (클래스 필드 영역에 추가)
-    private static final String Q_DRUG_INTERACTION =
-            "‘감기약’을 복용할 때 병용섭취를 주의해야하는 원료는?";
-    private static final String Q_EFFICACY =
-            "‘감기약’에 포함된 약품의 효능은?";
-
-    /** quiz question → type 매핑 (두 가지만 허용) */
-    private String resolveQuizTypeStrict(String question) {
-        if (Q_DRUG_INTERACTION.equals(question)) return "병용주의";
-        if (Q_EFFICACY.equals(question))        return "약효분류";
-        // ‘기타’ 금지: 예상치 못한 문구면 즉시 실패
-        throw new IllegalArgumentException("지원하지 않는 quiz question: " + question);
-    }
-
-    /** 보기 "1번"~"4번" 생성, 하나만 랜덤 정답 */
-    private void createQuizWithRandomAnswer(Long umno, String question) {
-        QuizEntity quiz = new QuizEntity();
-        quiz.getUserMedicine().setUmno(umno);
-        quiz.setQuestion(question);
-        quiz.setType(resolveQuizTypeStrict(question));
-        quizRepository.save(quiz);
-
-        List<String> options = List.of("1번", "2번", "3번", "4번");
-        int correctIndex = new Random().nextInt(options.size());
-
-        for (int i = 0; i < options.size(); i++) {
-            QuizOptionEntity opt = new QuizOptionEntity();
-            opt.getQuiz().setQno(quiz.getQno());
-            opt.setContent(options.get(i));
-            opt.setIsCorrect(i == correctIndex);
-            quizOptionRepository.save(opt);
+        } catch (Exception e) {
+            // (JSON 구조가 예상과 다르거나, 리스트가 비어있을 경우)
+            throw new RuntimeException("IncizorLens OCR 파싱 중 에러 발생", e);
         }
     }
 
-    // --- OCR 모킹 DTO ---
-    private record ExtractedPrescription(String hospital, List<ExtractedItem> items) {}
-    /**
-     * dosagePerIntake: 1회 투약량
-     * countTotal: 전체 복용횟수(기간 전체)
-     * days: 복용 일수
-     */
-    private record ExtractedItem(String name, int dosagePerIntake, int countTotal, int days) {}
+    private ParsedPrescriptionData parseOcrResult(OcrResponse ocrResponse) {
+        if (ocrResponse.getImages() == null || ocrResponse.getImages().isEmpty()) {
+            throw new RuntimeException("OCR 응답에 이미지가 없습니다.");
+        }
 
-    private ExtractedPrescription mockExtractedFromOCR(String imagePath) {
-        return new ExtractedPrescription(
-                "하늘병원",
-                List.of(
-                        // (1정 × 전체 6회 × 3일) → perDay ≈ 2 → acno = 6
-                        new ExtractedItem("씨프로바이정250mg", 1, 6, 3),
-                        new ExtractedItem("화록소정",          1, 6, 3)
+        // fields를 Map<이름, 텍스트>로 변환하여 쉽게 접근
+        Map<String, String> fieldMap = ocrResponse.getImages().get(0).getFields().stream()
+                .collect(Collectors.toMap(OcrField::getName, OcrField::getText, (a, b) -> a));
+
+        // 1. 병원명 추출
+        String hospitalName = fieldMap.getOrDefault("병원명", "병원명 없음");
+
+        // 2. 약품명/분류 추출 (Regex 사용)
+        String medicineBlock = fieldMap.get("약품명");
+        if (medicineBlock == null) throw new RuntimeException("OCR '약품명' 필드 없음");
+
+        List<String> medNames = new ArrayList<>();
+        List<String> classifications = new ArrayList<>();
+
+        // 정규식 패턴: (모든문자)\n\[(대괄호안의문자)\]
+        // (.*)         -> Group 1: 약품명
+        // \n\[(.*?)\]    -> Group 2: 약효분류
+        Pattern medPattern = Pattern.compile("(.*)\n\\[(.*?)\\]");
+        Matcher matcher = medPattern.matcher(medicineBlock);
+        while (matcher.find()) {
+            medNames.add(matcher.group(1).trim()); // (예: "슈가메트서방정5/100···")
+            classifications.add(matcher.group(2).trim()); // (예: "당뇨병 치료제")
+        }
+
+        // 3. 복약 횟수/일수 추출
+        String doseBlock = fieldMap.get("복약 횟수");
+        if (doseBlock == null) throw new RuntimeException("OCR '복약 횟수' 필드 없음");
+
+        List<Integer> doseCounts = new ArrayList<>();
+        List<Integer> doseDays = new ArrayList<>();
+        String[] doseLines = doseBlock.split("\n"); // "1 6 3\n1 6 3" -> ["1 6 3", "1 6 3"]
+
+        for (String line : doseLines) {
+            String[] parts = line.trim().split("\\s+"); // 공백으로 분리 "1 6 3" -> ["1", "6", "3"]
+            if (parts.length >= 3) {
+                // parts[0] = 투약량 (1)
+                // parts[1] = 횟수 (6)
+                // parts[2] = 일수 (3)
+                doseCounts.add(Integer.parseInt(parts[1]));
+                doseDays.add(Integer.parseInt(parts[2]));
+            }
+        }
+
+        // 4. 데이터 조합
+        List<ParsedMedicineInfo> medicines = new ArrayList<>();
+        int count = Math.min(medNames.size(), doseCounts.size()); // 두 리스트의 크기가 다를 경우를 대비
+
+        for (int i = 0; i < count; i++) {
+            medicines.add(new ParsedMedicineInfo(
+                    medNames.get(i),
+                    classifications.get(i),
+                    doseCounts.get(i),
+                    doseDays.get(i)
+            ));
+        }
+
+        return new ParsedPrescriptionData(hospitalName, medicines);
+    }
+
+    private List<Long> matchMedicinesWithLLM(List<ParsedMedicineInfo> ocrMeds) throws IOException, InterruptedException {
+        // 1. (동일) DB/OCR 약품 리스트 준비
+        List<MedicineEntity> allDbMeds = medicineRepository.findAll();
+        List<Map<String, Object>> dbMedList = allDbMeds.stream()
+                .map(m -> {
+                    Map<String, Object> map = new java.util.HashMap<>();
+                    map.put("mdno", m.getMdno());
+                    map.put("name", m.getName());
+                    return map;
+                })
+                .collect(Collectors.toList());
+
+        List<String> ocrNames = ocrMeds.stream()
+                .map(ParsedMedicineInfo::getName)
+                .collect(Collectors.toList());
+
+        // 2. (수정) Python 스크립트 호출 (인자 3개 전달)
+        String llmResult = runPythonScript(llmScriptPath,
+                "match_meds", // sys.argv[1] (mode)
+                objectMapper.writeValueAsString(ocrNames), // sys.argv[2]
+                objectMapper.writeValueAsString(dbMedList) // sys.argv[3]
+        );
+
+        // 3. (동일) LLM 결과(JSON 리스트) 파싱
+        return objectMapper.readValue(llmResult, new TypeReference<List<Long>>() {});
+    }
+
+    /**
+     * [3단계] 약품 리스트로 병용섭취 주의사항 조회 (DB 쿼리)
+     */
+    private List<CombinationEntity> findCombinations(List<MedicineEntity> matchedMeds) {
+        // 1. 모든 name, ingredient, classification 추출
+        List<String> names = matchedMeds.stream()
+                .map(MedicineEntity::getName).collect(Collectors.toList());
+        List<String> classifications = matchedMeds.stream()
+                .map(MedicineEntity::getClassification).distinct().collect(Collectors.toList());
+        List<String> ingredients = matchedMeds.stream()
+                .filter(med -> med.getIngredient() != null)
+                .flatMap(med -> Arrays.stream(med.getIngredient().split(",")))
+                .map(String::trim).distinct().collect(Collectors.toList());
+
+        // 2. Repository에 쿼리 요청
+        return combinationRepository.findCombinationsIn(names, ingredients, classifications);
+    }
+
+    /**
+     * [4단계] 대표 카테고리 생성 (LLM)
+     */
+    private String getRepresentativeCategory(List<MedicineEntity> matchedMeds) throws IOException, InterruptedException {
+        // 1. (동일) 분류 리스트 준비
+        List<String> classifications = matchedMeds.stream()
+                .map(MedicineEntity::getClassification)
+                .distinct()
+                .collect(Collectors.toList());
+
+        // 2. (수정) Python 스크립트 호출 (인자 2개 전달)
+        String llmResult = runPythonScript(llmScriptPath,
+                "category", // sys.argv[1] (mode)
+                objectMapper.writeValueAsString(classifications) // sys.argv[2]
+        );
+
+        // 3. (수정) LLM 결과(JSON 문자열) 파싱
+        return objectMapper.readValue(llmResult, String.class); // "감기약" (따옴표 포함된 JSON)
+    }
+
+    /**
+     * [5단계] taken(횟수) -> acno(알람조합ID) 매핑
+     */
+    private AlarmCombEntity mapTakenToAlarmComb(int taken) {
+        Long acno;
+        switch (taken) {
+            case 1: acno = 1L; break;
+            case 2: acno = 6L; break;
+            case 3: acno = 11L; break;
+            case 4: acno = 15L; break;
+            default: // 4회 초과는 일단 4회(15L)로 처리
+                acno = 15L;
+        }
+        // acno 1, 6, 11, 15는 DB에 이미 insert되어 있어야 함
+        return alarmCombRepository.findById(acno)
+                .orElseThrow(() -> new IllegalArgumentException("acno ID " + acno + "를 찾을 수 없습니다."));
+    }
+
+    /**
+     * [8단계] 최종 복약 안내 문구 생성 (LLM)
+     */
+    private String createFinalDescription(MedicineEntity med, List<CombinationEntity> allCombinations) throws IOException, InterruptedException {
+
+        // 1. 약품과 관련된 주의사항 '객체'를 필터링 (NPE 방지 코드 포함)
+        List<CombinationEntity> relevantCombinations = allCombinations.stream()
+                .filter(c ->
+                        (c.getName() != null && c.getName().equals(med.getName())) ||
+                                (c.getClassification() != null && c.getClassification().equals(med.getClassification())) ||
+                                (c.getIngredient() != null && med.getIngredient() != null && med.getIngredient().contains(c.getIngredient()))
                 )
+                .collect(Collectors.toList());
+
+        // 2. LLM에 보낼 '형식화된 주의사항' 리스트 생성
+        List<String> formattedWarnings = relevantCombinations.stream().map(combo -> {
+            // mtno가 연결된 경우
+            if (combo.getMaterial() != null && combo.getMaterial().getName() != null) {
+                // LLM에 "프로바이오틱스"와 "주의 문구"를 세트로 묶어서 전달
+                return String.format("'%s' 관련 주의: %s", combo.getMaterial().getName(), combo.getInformation());
+            } else {
+                // '알코올'처럼 mtno가 없는 경우 (ingredient 기반)
+                return String.format("'%s' 관련 주의: %s", combo.getIngredient(), combo.getInformation());
+            }
+        }).distinct().collect(Collectors.toList());
+
+        // 3. (중요) Python 스크립트에 '인자(argument)' 4개 전달
+        String llmResult = runPythonScript(llmScriptPath, "description",
+                med.getInformation(),
+                med.getDescription(),
+                objectMapper.writeValueAsString(formattedWarnings) // ["'프로바이오틱스' 관련 주의: ..."]
+        );
+
+        return objectMapper.readValue(llmResult, String.class);
+    }
+
+    private ParsedMedicineInfo findPrimaryMedicine(List<ParsedMedicineInfo> medicines) {
+        return medicines.stream()
+                .max(Comparator.comparingInt(ParsedMedicineInfo::getDoseDays))
+                .orElseThrow(() -> new IllegalArgumentException("약품 정보가 없습니다."));
+    }
+
+    /**
+     * [8-1] 퀴즈 생성 로직 (메인)
+     */
+    private void generateQuizzes(UserMedicineEntity prescription, List<MedicineEntity> matchedMeds, List<CombinationEntity> combinations, String category) {
+
+        // 1. (병용주의 퀴즈) - 조건부 생성
+        generateCombinationQuiz(prescription, category, combinations);
+
+        // 2. (약효분류 퀴즈) - 항상 생성
+        generateClassificationQuiz(prescription, category, matchedMeds);
+    }
+
+    /**
+     * [8-2] "병용주의" 퀴즈 생성
+     */
+    private void generateCombinationQuiz(UserMedicineEntity prescription, String category, List<CombinationEntity> combinations) {
+
+        // 1. 정답 후보 (주의 원료) 추출
+        List<String> correctAnswers = combinations.stream()
+                .map(CombinationEntity::getMaterial) // mtno에 연결된 MaterialEntity
+                .filter(Objects::nonNull) // material이 null이 아닌 것만
+                .map(MaterialEntity::getName) // ex."프로바이오틱스"
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+
+        // 2. 정답이 없으면 생성하지 않음
+        if (correctAnswers.isEmpty()) {
+            System.out.println("병용섭취 퀴즈: 정답 후보(mtno)가 없으므로 퀴즈 생성을 건너뜁니다.");
+            return; // 퀴즈 생성을 중단
+        }
+
+        // 3. quiz_table에 퀴즈 저장
+        QuizEntity quiz = QuizEntity.builder()
+                .userMedicine(prescription) // umno FK
+                .type("병용주의")
+                .question(String.format("%s를 복용할때 주의해야하는 원료는?", category))
+                .build();
+        QuizEntity savedQuiz = quizRepository.save(quiz);
+
+        // 4. 오답 후보 (material_table에서 정답을 제외하고 랜덤 5개)
+        List<String> wrongAnswers = materialRepository.findRandomMaterialsNotIn(correctAnswers);
+
+        // 5. quiz_option_table에 정답/오답 저장
+        saveQuizOptions(savedQuiz, correctAnswers, wrongAnswers);
+    }
+
+    /**
+     * [8-3] "약효분류" 퀴즈 생성
+     */
+    private void generateClassificationQuiz(UserMedicineEntity prescription, String category, List<MedicineEntity> matchedMeds) {
+
+        // 1. 정답 후보 (OCR로 뽑은 약들의 약효 분류)
+        List<String> correctAnswers = matchedMeds.stream()
+                .map(MedicineEntity::getClassification)
+                .distinct()
+                .collect(Collectors.toList());
+
+        // (이 퀴즈는 matchedMeds가 1개 이상이므로 항상 정답이 있음)
+
+        // 2. quiz_table에 퀴즈 저장
+        QuizEntity quiz = QuizEntity.builder()
+                .userMedicine(prescription) // umno FK
+                .type("약효분류")
+                .question(String.format("%s에 포함되어 있는 효능은?", category))
+                .build();
+        QuizEntity savedQuiz = quizRepository.save(quiz);
+
+        // 3. 오답 후보 (medicine_table의 다른 classification 랜덤 5개)
+        List<String> wrongAnswers = medicineRepository.findRandomClassificationsNotIn(correctAnswers);
+
+        // 4. quiz_option_table에 정답/오답 저장
+        saveQuizOptions(savedQuiz, correctAnswers, wrongAnswers);
+    }
+
+    /**
+     * [8-4] 퀴즈 옵션(정답/오답)을 DB에 저장하는 공통 메서드
+     */
+    private void saveQuizOptions(QuizEntity quiz, List<String> correctAnswers, List<String> wrongAnswers) {
+
+        // 1. 정답 저장 (isCorrect = true)
+        for (String answer : correctAnswers) {
+            QuizOptionEntity option = QuizOptionEntity.builder()
+                    .quiz(quiz) // qno FK
+                    .content(answer)
+                    .isCorrect(true)
+                    .build();
+            quizOptionRepository.save(option);
+        }
+
+        // 2. 오답 저장 (isCorrect = false)
+        for (String wrong : wrongAnswers) {
+            QuizOptionEntity option = QuizOptionEntity.builder()
+                    .quiz(quiz) // qno FK
+                    .content(wrong)
+                    .isCorrect(false)
+                    .build();
+            quizOptionRepository.save(option);
+        }
+    }
+
+    /**
+     * 2. 복약 알림 시간 조합 조회
+     */
+    @Transactional(readOnly = true)
+    public MedicationCombinationResponseDTO getCombination(Long uno, Long umno) {
+        UserMedicineEntity userMedicine = userMedicineRepository.findByUmno(umno);
+        if (userMedicine == null ||
+                userMedicine.getUser() == null ||
+                !Objects.equals(userMedicine.getUser().getUno(), uno)) {
+            throw new IllegalArgumentException("해당 복약 정보가 없거나 접근 권한이 없습니다.");
+        }
+
+        AlarmCombEntity alarmComb = userMedicine.getAlarmComb();
+        if (alarmComb == null) {
+            throw new IllegalArgumentException("AlarmCombEntity가 존재하지 않습니다. umno=" + umno);
+        }
+
+        return new MedicationCombinationResponseDTO(
+                userMedicine.getUmno(),
+                Boolean.TRUE.equals(alarmComb.getBreakfast()) ? 1 : 0,
+                Boolean.TRUE.equals(alarmComb.getLunch())     ? 1 : 0,
+                Boolean.TRUE.equals(alarmComb.getDinner())    ? 1 : 0,
+                Boolean.TRUE.equals(alarmComb.getNight())     ? 1 : 0
         );
     }
 
-    /** 오버플로/음수 방지 곱셈 */
-    private int safeMul(int a, int b) {
-        long v = (long) a * (long) b;
-        if (v > Integer.MAX_VALUE) return Integer.MAX_VALUE;
-        if (v < 0) return 0;
-        return (int) v;
+    /**
+     * 3. 복약 알림 시간 조합 수정
+     * - alarm_time_table 반영
+     * - 복용 횟수(taken)는 고정이고, 활성 타입만 변경된다는 전제
+     *   (예: 아침/점심/저녁 → 점심/저녁/자기전)
+     * - alarm_time_table의 atno는 그대로 유지하고, tno(TimeEntity)만 교체한다.
+     */
+    @Transactional
+    public MedicationCombinationResponseDTO updateCombination(Long uno, Long umno, MedicationCombinationRequestDTO request) {
+
+        // 1) 복약 엔터티 확인 + 소유자 검증
+        UserMedicineEntity userMedicine = userMedicineRepository.findByUmno(umno);
+        if (userMedicine == null ||
+                userMedicine.getUser() == null ||
+                !Objects.equals(userMedicine.getUser().getUno(), uno)) {
+            throw new IllegalArgumentException("해당 복약 정보가 없거나 접근 권한이 없습니다.");
+        }
+
+        // 2) 요청 파싱 (예: "breakfast,lunch,night")
+        String[] tokens = request.getCombination().split(",");
+        boolean breakfast = false, lunch = false, dinner = false, night = false;
+
+        for (String token : tokens) {
+            switch (token.trim().toLowerCase()) {
+                case "breakfast" -> breakfast = true;
+                case "lunch"     -> lunch     = true;
+                case "dinner"    -> dinner    = true;
+                case "night"     -> night     = true;
+            }
+        }
+
+        // 3) 활성 타입 개수와 taken(복용 횟수) 일치 여부 검증
+        int newActiveCount =
+                (breakfast ? 1 : 0) +
+                        (lunch     ? 1 : 0) +
+                        (dinner    ? 1 : 0) +
+                        (night     ? 1 : 0);
+
+        Integer taken = userMedicine.getTaken();  // 예: 3
+        if (taken != null && taken > 0 && newActiveCount != taken) {
+            throw new IllegalArgumentException(
+                    "조합의 활성 타입 개수(" + newActiveCount + ")가 복약 횟수(" + taken + ")와 일치하지 않습니다."
+            );
+        }
+
+        // 4) 해당 조합에 대응하는 AlarmCombEntity 조회
+        Optional<AlarmCombEntity> combOpt = alarmCombRepository
+                .findByBreakfastAndLunchAndDinnerAndNight(breakfast, lunch, dinner, night);
+
+        if (combOpt.isEmpty()) {
+            throw new IllegalArgumentException("해당 조합에 해당하는 AlarmCombEntity가 존재하지 않습니다.");
+        }
+
+        AlarmCombEntity newComb = combOpt.get();
+        userMedicine.setAlarmComb(newComb);
+        userMedicineRepository.save(userMedicine);
+
+        // 5) alarm_time_table 기존 행 조회 (해당 umno)
+        List<AlarmTimeEntity> existingTimes =
+                alarmTimeRepository.findAllByUserMedicine_UmnoIn(Collections.singletonList(umno));
+
+        if (existingTimes.isEmpty()) {
+            throw new IllegalStateException("해당 복약 정보에 등록된 알림 시간이 없습니다. umno=" + umno);
+        }
+
+        // atno 기준으로 정렬해서 "고정된 슬롯"처럼 취급
+        existingTimes.sort(Comparator.comparingLong(AlarmTimeEntity::getAtno));
+
+        if (taken != null && taken > 0 && existingTimes.size() != taken) {
+            throw new IllegalStateException(
+                    "alarm_time_table 행 개수(" + existingTimes.size() + ")가 복약 횟수(" + taken + ")와 일치하지 않습니다."
+            );
+        }
+
+        // 6) 새 활성 타입 리스트 (순서 고정: breakfast → lunch → dinner → night)
+        List<String> newTypes = new ArrayList<>();
+        if (breakfast) newTypes.add("breakfast");
+        if (lunch)     newTypes.add("lunch");
+        if (dinner)    newTypes.add("dinner");
+        if (night)     newTypes.add("night");
+
+        // 여기까지 왔으면 newTypes.size() == existingTimes.size() == taken 이라는 전제가 성립
+
+        // 7) 각 슬롯(atno)에 새 타입에 맞는 시간(tno) 매핑
+        for (int i = 0; i < newTypes.size(); i++) {
+            String type = newTypes.get(i);
+            AlarmTimeEntity alarmTime = existingTimes.get(i);
+
+            // 사용자 기본 시간 설정(UserTime) 조회
+            UserTimeEntity userTime = userTimeRepository
+                    .findByUser_UnoAndTime_Type(uno, type)
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "해당 사용자의 '" + type + "' 시간 설정을 찾을 수 없습니다."
+                    ));
+
+            // atno는 건드리지 않고, FK(tno)에 해당하는 TimeEntity만 교체
+            alarmTime.setTime(userTime.getTime());
+        }
+
+        // 8) 변경 사항 저장 (update만 수행, delete 없음)
+        alarmTimeRepository.saveAll(existingTimes);
+
+        // 9) 응답 DTO
+        return new MedicationCombinationResponseDTO(
+                userMedicine.getUmno(),
+                Boolean.TRUE.equals(newComb.getBreakfast()) ? 1 : 0,
+                Boolean.TRUE.equals(newComb.getLunch())     ? 1 : 0,
+                Boolean.TRUE.equals(newComb.getDinner())    ? 1 : 0,
+                Boolean.TRUE.equals(newComb.getNight())     ? 1 : 0
+        );
     }
 
+
+    @Transactional(readOnly = true)
+    public MedicationSummaryResponseDTO getMedicationSummary(Long uno, Long umno) {
+        // 1. 유효성 검증
+        UserMedicineEntity um = userMedicineRepository.findByUmno(umno);
+        if (um == null) throw new IllegalArgumentException("유효하지 않은 umno: " + umno);
+        if (um.getUser() == null || um.getUser().getUno() == null || !um.getUser().getUno().equals(uno)) {
+            throw new IllegalArgumentException("해당 복약 정보에 대한 접근 권한이 없습니다.");
+        }
+
+        // 2. 약품 목록 조회
+        List<UserMedicineItemEntity> items = userMedicineItemRepository.findAllByUserMedicine_Umno(umno);
+
+        // 3. (핵심 수정) 처방된 약품들만 추출하여 관련 Combination만 Bulk 조회
+        List<MedicineEntity> allMedicines = items.stream()
+                .map(UserMedicineItemEntity::getMedicine)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
+        // 여기서 이전에 만든 로직을 재사용하여 정확하게 매칭되는 조합만 DB에서 가져옴
+        List<CombinationEntity> relevantCombinations = findCombinations(allMedicines);
+
+        // 4. DTO 변환 및 매핑
+        List<MedicationItemDTO> medicines = items.stream()
+                .map(item -> {
+                    MedicineEntity med = item.getMedicine();
+                    if (med == null) return null;
+
+                    // 4-1. 현재 약(med)에 해당하는 주의사항만 필터링하여 MaterialDTO로 변환
+                    // (findCombinations 로직과 동일한 조건으로 매칭)
+                    List<MaterialDTO> materials = relevantCombinations.stream()
+                            .filter(comb -> isCombinationMatch(med, comb)) // 헬퍼 메서드로 분리
+                            .map(CombinationEntity::getMaterial) // MaterialEntity 추출
+                            .filter(Objects::nonNull)
+                            .map(mat -> MaterialDTO.builder()
+                                    .mtno(mat.getMtno())
+                                    .name(mat.getName())
+                                    .build())
+                            .distinct() // 중복 제거 (같은 원료가 여러 이유로 걸릴 수 있음)
+                            .collect(Collectors.toList());
+
+                    // TTS 생성 (Base64 문자열 반환)
+                    String descriptionText = item.getDescription();
+                    String audioUrl = ttsService.generateTtsFromText(descriptionText);
+
+                    return MedicationItemDTO.builder()
+                            .mdno(med.getMdno())
+                            .name(med.getName())
+                            .classification(med.getClassification())
+                            .image(med.getImage())
+                            .description(descriptionText) // DB값 그대로
+                            .audioUrl(audioUrl) // TTS 오디오 Base64 인코딩 문자열
+                            .materials(materials) // 매칭된 원료 리스트
+                            .build();
+                })
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
+        return MedicationSummaryResponseDTO.builder()
+                .hospital(um.getHospital())
+                .category(um.getCategory())
+                .medicines(medicines)
+                .build();
+    }
+
+    private boolean isCombinationMatch(MedicineEntity med, CombinationEntity comb) {
+        // 1. 약품명 일치
+        if (comb.getName() != null && comb.getName().equals(med.getName())) {
+            return true;
+        }
+        // 2. 약효분류 일치
+        if (comb.getClassification() != null && comb.getClassification().equals(med.getClassification())) {
+            return true;
+        }
+        // 3. 성분 포함 여부 (쉼표로 구분된 성분 중 하나라도 일치하면 true)
+        if (comb.getIngredient() != null && med.getIngredient() != null) {
+            // 예: med="성분A, 성분B", comb="성분A" -> 매칭 성공
+            String[] medIngredients = med.getIngredient().split(",");
+            for (String ingredient : medIngredients) {
+                if (ingredient.trim().equals(comb.getIngredient())) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    //한글/영문/숫자만 남기고 공백·기호 제거, 정규화(NFKC), 소문자
+    private String normalizeKR(String s) {
+        if (s == null) return "";
+        String n = Normalizer.normalize(s, Normalizer.Form.NFKC).toLowerCase(Locale.ROOT);
+        return n.replaceAll("[^\\p{IsLetter}\\p{IsDigit}]", "");
+    }
+
+    // 부분 일치 규칙: ingredient != null && (medName.contains(ingredient) || ingredient.contains(medName))
+    private boolean nameMatches(String medNameNorm, String ingredientRaw) {
+        if (ingredientRaw == null) return false;
+        String ing = normalizeKR(ingredientRaw);
+        if (ing.isEmpty() || medNameNorm.isEmpty()) return false;
+        return medNameNorm.contains(ing) || ing.contains(medNameNorm);
+    }
+
+    /**
+     * 5. 복약 정보 부분 수정(카테고리)
+     */
     @Transactional
     public MedicationCategoryUpdateResponseDTO updateMedicationCategory(
             Long uno, Long umno, MedicationCategoryUpdateRequestDTO request) {
 
         String newCategory = request.getCategory();
-        if (!StringUtils.hasText(newCategory)) {
+        if (!org.springframework.util.StringUtils.hasText(newCategory)) {
             throw new IllegalArgumentException("카테고리는 비어 있을 수 없습니다.");
         }
         newCategory = newCategory.trim();
@@ -290,70 +864,77 @@ public class MedicationService {
     }
 
     /**
-     * 상세 복약 정보 조회
-     * - 소유자(uno) 검증
-     * - comb: AlarmCombEntity의 활성 카운트 → "1일 N회"
-     * - 각 약에 대해:
-     *    - medicine_table: mdno, name, classification, image, information
-     *    - user_medicine_item_table: description (LLM 생성 X, DB 그대로)
-     *    - combination_table: ingredient가 NULL이 아닌 행만 대상으로
-     *        "약 이름 vs ingredient" 부분 일치 시 material 수집(중복 제거)
+     * 6. 복약 정보 상세 조회
      */
     @Transactional(readOnly = true)
     public MedicationDetailResponseDTO getMedicationDetail(Long uno, Long umno) {
 
-        // 복약 엔터티 조회
+        // 1. 복약 엔터티 조회 및 권한 검증
         UserMedicineEntity userMedicine = userMedicineRepository.findByUmno(umno);
         if (userMedicine == null || !Objects.equals(userMedicine.getUser().getUno(), uno)) {
             throw new IllegalArgumentException("해당 복약 정보가 존재하지 않거나 접근 권한이 없습니다.");
         }
 
-        // 복약에 포함된 약 리스트 조회
-        List<UserMedicineItemEntity> items = userMedicineItemRepository.findAllByUserMedicine_Umno(umno);
-
-        // 3comb 계산 (예: "breakfast,lunch")
+        // 2. 복약 알림 조합(3comb) 계산
         AlarmCombEntity combEntity = userMedicine.getAlarmComb();
+        if (combEntity == null) {
+            throw new IllegalArgumentException("해당 복약 정보에는 복약 알림 조합이 없습니다.");
+        }
 
         List<String> combList = new ArrayList<>();
         if (Boolean.TRUE.equals(combEntity.getBreakfast())) combList.add("breakfast");
-        if (Boolean.TRUE.equals(combEntity.getLunch())) combList.add("lunch");
-        if (Boolean.TRUE.equals(combEntity.getDinner())) combList.add("dinner");
-        if (Boolean.TRUE.equals(combEntity.getNight())) combList.add("night");
+        if (Boolean.TRUE.equals(combEntity.getLunch()))     combList.add("lunch");
+        if (Boolean.TRUE.equals(combEntity.getDinner()))    combList.add("dinner");
+        if (Boolean.TRUE.equals(combEntity.getNight()))     combList.add("night");
         String comb = String.join(",", combList);
 
-        // medicine + materials 매핑
-        List<MedicationDetailMedicineDTO> medicines = items.stream().map(item -> {
-            MedicineEntity med = item.getMedicine();
+        // 3. 복약에 포함된 약 리스트 조회
+        List<UserMedicineItemEntity> items = userMedicineItemRepository.findAllByUserMedicine_Umno(umno);
 
-            // information = medicine_table.description
-            String information = med.getDescription();
+        // 4. [핵심 수정] 처방된 약품들만 추출하여 관련 Combination만 Bulk 조회 (최적화)
+        List<MedicineEntity> allMedicines = items.stream()
+                .map(UserMedicineItemEntity::getMedicine)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
 
-            // description = user_medicine_item_table.description
-            String description = item.getDescription();
+        // (이전에 만든 findCombinations 메서드 재사용)
+        List<CombinationEntity> relevantCombinations = findCombinations(allMedicines);
 
-            // 병용주의 원료(materials) 조회
-            String medNameNorm = normalizeKR(med.getName());
-            List<MaterialDTO> materials = combinationRepository.findAll().stream()
-                    .filter(c -> nameMatches(medNameNorm, c.getIngredient()) ||
-                            nameMatches(medNameNorm, c.getName()))
-                    .map(CombinationEntity::getMaterial)
-                    .filter(Objects::nonNull)
-                    .distinct()
-                    .map(m -> new MaterialDTO(m.getMtno(), m.getName()))
-                    .collect(Collectors.toList());
+        // 5. DTO 매핑
+        List<MedicationDetailMedicineDTO> medicines = items.stream()
+                .map(item -> {
+                    MedicineEntity med = item.getMedicine();
+                    if (med == null) return null;
 
-            return new MedicationDetailMedicineDTO(
-                    med.getMdno(),
-                    med.getName(),
-                    med.getClassification(),
-                    med.getImage(),
-                    information,   // ← medicine_table.description
-                    description,   // ← user_medicine_item_table.description
-                    materials
-            );
-        }).collect(Collectors.toList());
+                    // [핵심 수정] 현재 약(med)에 해당하는 주의사항만 필터링하여 MaterialDTO로 변환
+                    // (이전에 만든 isCombinationMatch 헬퍼 메서드 재사용)
+                    List<MaterialDTO> materials = relevantCombinations.stream()
+                            .filter(c -> isCombinationMatch(med, c))
+                            .map(CombinationEntity::getMaterial)
+                            .filter(Objects::nonNull)
+                            .map(mat -> new MaterialDTO(mat.getMtno(), mat.getName()))
+                            .distinct() // 중복 제거
+                            .collect(Collectors.toList());
 
-        // 최종 DTO 반환
+                    // TTS 생성 (Base64 문자열 반환)
+                    String description = item.getDescription();
+                    String audioUrl = ttsService.generateTtsFromText(description);
+
+                    return new MedicationDetailMedicineDTO(
+                            med.getMdno(),
+                            med.getName(),
+                            med.getClassification(),
+                            med.getImage(),
+                            med.getDescription(),   // information (medicine_table)
+                            description,             // description (user_medicine_item_table)
+                            audioUrl,                // TTS 오디오 Base64 인코딩 문자열
+                            materials                // 병용주의 원료 리스트
+                    );
+                })
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
+        // 6. 최종 DTO 반환
         return new MedicationDetailResponseDTO(
                 userMedicine.getUmno(),
                 userMedicine.getHospital(),
@@ -364,22 +945,159 @@ public class MedicationService {
         );
     }
 
-    // ==========================
-    // 🔹 문자열 정규화/매칭 유틸
-    // ==========================
 
-    /** 한글/영문/숫자만 남기고 공백·기호 제거, 정규화(NFKC), 소문자 */
-    private String normalizeKR(String s) {
-        if (s == null) return "";
-        String n = Normalizer.normalize(s, Normalizer.Form.NFKC).toLowerCase(Locale.ROOT);
-        return n.replaceAll("[^\\p{IsLetter}\\p{IsDigit}]", "");
+    /**
+     * 7. 개별 복약 시간 조회
+     */
+    @Transactional(readOnly = true)
+    public MedicationTimeItemDTO getMedicationTime(Long uno, Long umno, String type) {
+        // 1) 복약 정보 존재 여부 및 소유자 검증
+        UserMedicineEntity ume = userMedicineRepository.findByUmno(umno);
+        if (ume == null || ume.getUser() == null || !Objects.equals(ume.getUser().getUno(), uno)) {
+            throw new IllegalArgumentException("해당 복약 정보가 없거나 접근 권한이 없습니다.");
+        }
+
+        // 2) comb에 포함되어 있는 타입인지 검증
+        AlarmCombEntity comb = ume.getAlarmComb();
+        if (comb == null) {
+            throw new IllegalArgumentException("해당 복약 정보에는 복약 알림 조합이 없습니다.");
+        }
+
+        boolean valid = switch (type) {
+            case "breakfast" -> Boolean.TRUE.equals(comb.getBreakfast());
+            case "lunch"     -> Boolean.TRUE.equals(comb.getLunch());
+            case "dinner"    -> Boolean.TRUE.equals(comb.getDinner());
+            case "night"     -> Boolean.TRUE.equals(comb.getNight());
+            default          -> false;
+        };
+
+        if (!valid) {
+            throw new IllegalArgumentException("해당 복약 정보에는 요청한 타입의 복약 시간이 존재하지 않습니다.");
+        }
+
+        // 3) alarm_time_table 에서 해당 타입의 알람 찾기
+        List<AlarmTimeEntity> alarmTimes =
+                alarmTimeRepository.findAllByUserMedicine_UmnoIn(Collections.singletonList(umno));
+
+        AlarmTimeEntity target = alarmTimes.stream()
+                .filter(a -> a.getTime() != null &&
+                        a.getTime().getType() != null &&
+                        a.getTime().getType().equalsIgnoreCase(type))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "해당 복약 정보에는 요청한 타입의 알림 시간이 존재하지 않습니다.")
+                );
+
+        // 4) DTO 구성 (atno = AlarmTimeEntity PK)
+        return new MedicationTimeItemDTO(
+                uno,
+                target.getAtno(),
+                umno,
+                type,
+                target.getTime().getTime().getHour()
+        );
     }
 
-    /** 부분 일치 규칙: ingredient != null && (medName.contains(ingredient) || ingredient.contains(medName)) */
-    private boolean nameMatches(String medNameNorm, String ingredientRaw) {
-        if (ingredientRaw == null) return false;
-        String ing = normalizeKR(ingredientRaw);
-        if (ing.isEmpty() || medNameNorm.isEmpty()) return false;
-        return medNameNorm.contains(ing) || ing.contains(medNameNorm);
+    /**
+     * 8. 개별 복약 시간 수정
+     * - atno: URI path 변수
+     * - request: { type, time }
+     */
+    @Transactional
+    public MedicationTimeUpdateResponseDTO updateMedicationTime(Long uno, Long umno, Long atno, MedicationTimeUpdateRequestDTO request) {
+
+        // 1) 대상 AlarmTimeEntity 조회
+        AlarmTimeEntity alarmTime = alarmTimeRepository.findById(atno)
+                .orElseThrow(() -> new IllegalArgumentException("유효하지 않은 atno: " + atno));
+
+        // 2) 소유권/경로 무결성 검증 (uno, umno 일치)
+        if (alarmTime.getUserMedicine() == null ||
+                alarmTime.getUserMedicine().getUser() == null ||
+                !alarmTime.getUserMedicine().getUser().getUno().equals(uno)) {
+            throw new IllegalArgumentException("해당 atno는 요청 사용자의 데이터가 아닙니다.");
+        }
+        if (!alarmTime.getUserMedicine().getUmno().equals(umno)) {
+            throw new IllegalArgumentException("경로의 umno와 atno가 일치하지 않습니다.");
+        }
+
+        // 3) 타입 검증 (요청이 type을 보낼 경우, 기존 타입과 일치하는지 체크)
+        String currentType = alarmTime.getTime().getType(); // 기존 타입
+        String reqType = request.getType();
+        if (reqType != null && !reqType.isBlank()) {
+            if (!currentType.equalsIgnoreCase(reqType.trim())) {
+                throw new IllegalArgumentException("요청 type이 기존 알림 타입과 일치하지 않습니다. (현재: "
+                        + currentType + ", 요청: " + reqType + ")");
+            }
+        } else {
+            // 프론트에서 type을 안보내면 기존 타입을 그대로 사용
+            reqType = currentType;
+        }
+
+        // 4) 변경할 시간(hour)로 time_table 조회
+        int newHour = request.getTime();
+        if (newHour < 0 || newHour > 23) {
+            throw new IllegalArgumentException("time은 0~23 사이의 정수여야 합니다.");
+        }
+
+        TimeEntity newTimeEntity = timeRepository
+                .findByTypeAndTime(reqType, java.time.LocalTime.of(newHour, 0))
+                .orElse(null);
+
+        if (newTimeEntity == null) {
+            throw new IllegalArgumentException(
+                    "'" + reqType + "' 타입의 " + newHour + "시 설정이 time_table에 없습니다.");
+        }
+
+        // 5) 변경 적용
+        alarmTime.setTime(newTimeEntity);
+        alarmTimeRepository.save(alarmTime);
+
+        // 6) 응답 DTO
+        return new MedicationTimeUpdateResponseDTO(
+                alarmTime.getUserMedicine().getUser().getUno(),
+                alarmTime.getAtno(),
+                alarmTime.getUserMedicine().getUmno(),
+                newTimeEntity.getType(),
+                newTimeEntity.getTime().getHour()
+        );
+    }
+
+    /**
+     * 처방전 등록 시, 알람 조합(acno)에 맞춰 초기 알람 시간을 생성합니다.
+     */
+    private void createInitialAlarmTimes(UserEntity user, UserMedicineEntity prescription, AlarmCombEntity alarmComb) {
+        List<String> activeTypes = new ArrayList<>();
+
+        // 1. 활성화된 타입 확인 (순서 중요: 아침 -> 점심 -> 저녁 -> 취침전)
+        if (Boolean.TRUE.equals(alarmComb.getBreakfast())) activeTypes.add("breakfast");
+        if (Boolean.TRUE.equals(alarmComb.getLunch()))     activeTypes.add("lunch");
+        if (Boolean.TRUE.equals(alarmComb.getDinner()))    activeTypes.add("dinner");
+        if (Boolean.TRUE.equals(alarmComb.getNight()))     activeTypes.add("night");
+
+        for (String type : activeTypes) {
+            // 2. 해당 타입에 대해 유저가 설정한 시간(UserTime) 조회
+            TimeEntity timeEntity = getUserTime(user.getUno(), type);
+
+            // 3. 알람 시간 생성 및 저장
+            AlarmTimeEntity alarmTime = AlarmTimeEntity.builder()
+                    .userMedicine(prescription) // umno FK
+                    .time(timeEntity)           // tno FK
+                    .build();
+            alarmTimeRepository.save(alarmTime);
+        }
+    }
+
+    /**
+     * 유저가 설정한 시간(tno)을 가져옵니다. 설정이 없으면 기본값(08:00 등)을 가져옵니다.
+     */
+    private TimeEntity getUserTime(Long uno, String type) {
+        // 1. user_time_table 조회
+        return userTimeRepository.findByUser_UnoAndTime_Type(uno, type)
+                .map(UserTimeEntity::getTime) // 유저 설정이 있으면 그 시간(tno) 사용
+                .orElseGet(() -> {
+                    // 2. (예외 처리) 유저 설정이 없으면 time_table에서 해당 타입의 첫 번째 시간(예: 08:00)을 기본값으로 사용
+                    return timeRepository.findByType(type).stream().findFirst()
+                            .orElseThrow(() -> new IllegalStateException("기본 시간 설정(time_table)이 비어있습니다. type=" + type));
+                });
     }
 }

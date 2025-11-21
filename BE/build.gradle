@@ -37,6 +37,7 @@ dependencies {
     implementation 'org.json:json:20230227'
     implementation 'com.google.cloud:google-cloud-texttospeech:2.3.0'
     implementation 'com.google.protobuf:protobuf-java:3.19.1'
+    implementation 'com.google.firebase:firebase-admin:9.2.0'
 
     compileOnly 'org.projectlombok:lombok'
     developmentOnly 'org.springframework.boot:spring-boot-devtools'

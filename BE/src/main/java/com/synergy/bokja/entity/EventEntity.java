@@ -33,6 +33,10 @@ public class EventEntity {
     @JoinColumn(name = "dno")
     private DescriptionEntity description;
 
+    @ManyToOne
+    @JoinColumn(name = "qno")
+    private QuizEntity quiz;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private EventStatus status;

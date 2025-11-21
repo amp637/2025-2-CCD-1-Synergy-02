@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import responsive from '../../utils/responsive';
+import { LinearGradient } from 'expo-linear-gradient';
 
 interface EditInfoSelectProps {
   onBasicInfo?: () => void;
@@ -61,33 +61,43 @@ export default function EditInfoSelect({ onBasicInfo, onMedicationTime, onExit }
           <View style={styles.buttonGrid}>
             {/* 기본 정보 버튼 */}
             <TouchableOpacity
-              style={styles.optionButton}
               onPress={handleBasicInfo}
               activeOpacity={0.8}
             >
-              <Text style={styles.optionButtonText}>기본 정보</Text>
+              <LinearGradient
+                colors={['#FFCC02', '#FFCC02']}
+                style={styles.optionButton}
+              >
+                <Text style={styles.optionButtonText}>기본 정보</Text>
+              </LinearGradient>
             </TouchableOpacity>
 
             {/* 복약 시간 버튼 */}
             <TouchableOpacity
-              style={styles.optionButton}
               onPress={handleMedicationTime}
               activeOpacity={0.8}
             >
-              <Text style={styles.optionButtonText}>복약 시간</Text>
+              <LinearGradient
+                colors={['#FFCC02', '#FFCC02']}
+                style={styles.optionButton}
+              >
+                <Text style={styles.optionButtonText}>복약 시간</Text>
+              </LinearGradient>
             </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
 
       {/* 나가기 버튼 */}
-      <View style={[styles.buttonContainer, { bottom: insets.bottom + responsive(16) }]}>
-        <TouchableOpacity
-          style={[styles.submitButton, { maxWidth: MAX_WIDTH }]}
-          onPress={handleExit}
-        >
-          <Text style={styles.submitButtonText}>나가기</Text>
-        </TouchableOpacity>
+      <View style={styles.buttonContainer}>
+        <View style={[styles.buttonWrapper, { maxWidth: MAX_WIDTH }]}>
+          <TouchableOpacity
+            style={styles.submitButton}
+            onPress={handleExit}
+          >
+            <Text style={styles.submitButtonText}>나가기</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -139,13 +149,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between' as any,
   },
   optionButton: {
-    width: responsive(172),
-    height: responsive(172),
-    backgroundColor: '#FFCC02',
-    borderRadius: responsive(16),
+    width: 148,
+    height: 148,
+    borderRadius: 16,
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
-    paddingHorizontal: responsive(16),
   },
   optionButtonText: {
     fontSize: responsive(27),
@@ -156,13 +164,20 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     position: 'absolute' as any,
-    left: responsive(16),
-    right: responsive(16),
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 16,
+    paddingBottom: 36,
+    alignItems: 'center' as any,
+  },
+  buttonWrapper: {
+    width: '100%',
     alignItems: 'center' as any,
   },
   submitButton: {
-    width: '100%',
-    height: responsive(66),
+    width: 320,
+    height: 66,
     backgroundColor: '#60584d',
     borderRadius: responsive(200),
     justifyContent: 'center' as any,
