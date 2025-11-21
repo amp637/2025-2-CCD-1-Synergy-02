@@ -30,4 +30,8 @@ application-local.yml
 application-local.properties
 application-secret.yml
 application-secret.properties
+service-account-key.json
 /src/main/resources/fcm-token.json
+
+# Test files
+test_tts_audio.html

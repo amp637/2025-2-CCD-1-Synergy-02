@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
-const timeOptions = [11, 12, 13, 14, 15, 16];
+const timeOptions = [11, 12, 1, 2, 3, 4];
 
 interface LunchTimeEditScreenProps {
   onNext?: () => void;
@@ -21,7 +21,7 @@ export default function LunchTimeEditScreen({ onNext }: LunchTimeEditScreenProps
   const isTablet = width > 600;
   const MAX_WIDTH = isTablet ? 420 : 360;
 
-  const [selectedTime, setSelectedTime] = useState<number | null>(12); // 기존 시간으로 초기화
+  const [selectedTime, setSelectedTime] = useState<number | null>(11); // 기존 시간으로 초기화
 
   const isNextButtonActive = selectedTime !== null;
 
@@ -149,24 +149,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row' as any,
     flexWrap: 'wrap' as any,
     justifyContent: 'space-between' as any,
+    gap: 0,
   },
   timeButton: {
-    width: 164,
-    height: 144,
+    width: '48%',
+    maxWidth: 148,
+    aspectRatio: 148 / 128,
+    minHeight: 128,
     borderRadius: 25,
-    borderWidth: 1,
-    borderColor: '#ffcc02',
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
     marginBottom: 24,
   },
   timeButtonSelected: {
     backgroundColor: '#60584d',
-    borderColor: '#60584d',
   },
   timeButtonUnselected: {
     backgroundColor: '#ffcc02',
-    borderColor: '#ffcc02',
   },
   timeButtonText: {
     fontSize: 48,
@@ -181,14 +180,15 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     position: 'absolute' as any,
-    left: 16,
-    right: 16,
-    bottom: 36,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 16,
+    paddingBottom: 36,
     alignItems: 'center' as any,
   },
   nextButton: {
-    width: '100%',
-    maxWidth: 360,
+    width: 320,
     height: 66,
     borderRadius: 200,
     justifyContent: 'center' as any,

@@ -28,10 +28,13 @@ public class EventController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Invalid or expired token");
         }
 
+        @SuppressWarnings("unused")
         Long uno = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         AIScriptResponseDTO result = eventService.getAIScript(umno);
+        
         BaseResponse<AIScriptResponseDTO> response =
                 new BaseResponse<>(1000, "AI 전화 스크립트 조회 성공", result);
+        
         return ResponseEntity.ok(response);
     }
 
@@ -42,6 +45,7 @@ public class EventController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Invalid or expired token");
         }
 
+        @SuppressWarnings("unused")
         Long uno = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         EventItemResponseDTO result = eventService.getEventList(uno);
         BaseResponse<EventItemResponseDTO> response =

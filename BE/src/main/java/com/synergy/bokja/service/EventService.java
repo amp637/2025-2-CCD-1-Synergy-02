@@ -27,17 +27,32 @@ public class EventService {
     private final QuizRepository quizRepository;
     private final QuizOptionRepository quizOptionRepository;
     private final CycleRepository cycleRepository;
+    private final TtsService ttsService;
     private final UserRepository userRepository;
-
     private final FcmService fcmService;
 
     public AIScriptResponseDTO getAIScript(Long umno) {
         DescriptionEntity description = descriptionRepository.findByUserMedicine_UmnoAndEventName_Enno(umno, 3l); // AI call -> enno : 3
 
-        return new AIScriptResponseDTO(
+        if (description == null) {
+            throw new IllegalArgumentException("해당 복약 정보(umno=" + umno + ")와 이벤트(enno=3)에 대한 description을 찾을 수 없습니다.");
+        }
+
+        String descriptionText = description.getDescription();
+        if (descriptionText == null || descriptionText.trim().isEmpty()) {
+            throw new IllegalArgumentException("description이 비어있습니다.");
+        }
+
+        // TTS 생성 (Base64 문자열 반환)
+        String audioUrl = ttsService.generateTtsFromText(descriptionText);
+
+        AIScriptResponseDTO dto = new AIScriptResponseDTO(
                 description.getUserMedicine().getUmno(),
-                description.getDescription()
+                descriptionText,
+                audioUrl
         );
+        
+        return dto;
     }
 
     @Transactional

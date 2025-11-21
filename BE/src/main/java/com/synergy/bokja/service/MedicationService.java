@@ -42,6 +42,7 @@ public class MedicationService {
     private final QuizOptionRepository quizOptionRepository;
     private final AlarmCombRepository alarmCombRepository;
     private final CombinationRepository combinationRepository;
+    private final TtsService ttsService;
     private final MaterialRepository materialRepository;
     private final EventNameRepository eventNameRepository;
     private final AlarmTimeRepository alarmTimeRepository;
@@ -771,12 +772,17 @@ public class MedicationService {
                             .distinct() // 중복 제거 (같은 원료가 여러 이유로 걸릴 수 있음)
                             .collect(Collectors.toList());
 
+                    // TTS 생성 (Base64 문자열 반환)
+                    String descriptionText = item.getDescription();
+                    String audioUrl = ttsService.generateTtsFromText(descriptionText);
+
                     return MedicationItemDTO.builder()
                             .mdno(med.getMdno())
                             .name(med.getName())
                             .classification(med.getClassification())
                             .image(med.getImage())
-                            .description(item.getDescription())
+                            .description(descriptionText) // DB값 그대로
+                            .audioUrl(audioUrl) // TTS 오디오 Base64 인코딩 문자열
                             .materials(materials) // 매칭된 원료 리스트
                             .build();
                 })
@@ -910,14 +916,19 @@ public class MedicationService {
                             .distinct() // 중복 제거
                             .collect(Collectors.toList());
 
+                    // TTS 생성 (Base64 문자열 반환)
+                    String description = item.getDescription();
+                    String audioUrl = ttsService.generateTtsFromText(description);
+
                     return new MedicationDetailMedicineDTO(
                             med.getMdno(),
                             med.getName(),
                             med.getClassification(),
                             med.getImage(),
                             med.getDescription(),   // information (medicine_table)
-                            item.getDescription(),  // description (user_medicine_item_table)
-                            materials               // 병용주의 원료 리스트
+                            description,             // description (user_medicine_item_table)
+                            audioUrl,                // TTS 오디오 Base64 인코딩 문자열
+                            materials                // 병용주의 원료 리스트
                     );
                 })
                 .filter(Objects::nonNull)
