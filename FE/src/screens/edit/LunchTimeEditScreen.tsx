@@ -39,7 +39,7 @@ export default function LunchTimeEditScreen({ onNext }: LunchTimeEditScreenProps
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.safeArea} edges={['bottom']}>
       <StatusBar style="dark" />
 
       {/* 헤더 */}

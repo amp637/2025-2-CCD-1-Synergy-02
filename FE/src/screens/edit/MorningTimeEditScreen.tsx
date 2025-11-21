@@ -38,7 +38,7 @@ export default function MorningTimeEditScreen({ onNext }: MorningTimeEditScreenP
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.safeArea} edges={['bottom']}>
       <StatusBar style="dark" />
       
       {/* Header */}

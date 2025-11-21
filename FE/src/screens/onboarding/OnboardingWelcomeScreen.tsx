@@ -28,7 +28,7 @@ export default function OnboardingWelcomeScreen({ onStartPress }: OnboardingWelc
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.safeArea} edges={['bottom']}>
       <StatusBar style="dark" />
       <ScrollView
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + responsive(80) }]}

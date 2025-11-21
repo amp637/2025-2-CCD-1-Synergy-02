@@ -71,7 +71,7 @@ export default function IntakeSideEffectCheck({ onComplete }: IntakeSideEffectCh
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.safeArea} edges={['bottom']}>
       <StatusBar style="dark" />
 
       {/* 헤더 */}

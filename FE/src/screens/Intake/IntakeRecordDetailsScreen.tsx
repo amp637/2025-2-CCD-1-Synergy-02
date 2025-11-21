@@ -82,7 +82,7 @@ const IntakeRecordDetailsScreen = React.memo(({ onExit }: IntakeRecordDetailsScr
   }, [onExit]);
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.safeArea} edges={['bottom']}>
       <StatusBar barStyle="dark-content" />
       
       {/* 상단 헤더 - 고정 */}

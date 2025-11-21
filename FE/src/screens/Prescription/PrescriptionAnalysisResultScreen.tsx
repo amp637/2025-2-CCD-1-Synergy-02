@@ -126,7 +126,7 @@ export default function PrescriptionAnalysisResultScreen({ onGoHome }: Prescript
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.safeArea} edges={['bottom']}>
       <StatusBar style="dark" />
       
       {/* Header - 고정 */}

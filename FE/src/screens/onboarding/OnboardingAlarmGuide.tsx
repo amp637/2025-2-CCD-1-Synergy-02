@@ -31,7 +31,7 @@ export default function OnboardingAlarmGuide({ onComplete }: OnboardingAlarmGuid
   }, [onComplete]);
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.safeArea} edges={['bottom']}>
       <StatusBar style="dark" />
       <View style={styles.container}>
         <View style={[styles.card, { maxWidth: MAX_WIDTH }]}>

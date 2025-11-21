@@ -95,7 +95,7 @@ const IntakeRecordListScreen = React.memo(({ onRecordPress, onExit }: IntakeReco
   }, [onExit]);
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.safeArea} edges={['bottom']}>
       <StatusBar barStyle="dark-content" />
       
       {/* 상단 헤더 */}

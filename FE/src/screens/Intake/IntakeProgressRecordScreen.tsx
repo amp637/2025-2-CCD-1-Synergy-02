@@ -85,7 +85,7 @@ const IntakeProgressRecordScreen = React.memo(({ recordData, onExit, onDetailRec
   }, [onExit]);
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.safeArea} edges={['bottom']}>
       <StatusBar barStyle="dark-content" />
       
       {/* 상단 헤더 - IntakeRecordListScreen과 동일 */}

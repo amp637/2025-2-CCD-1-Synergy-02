@@ -108,7 +108,7 @@ export default function PrescriptionDetailScreen({ medication, onGoHome, onEditT
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.safeArea} edges={['bottom']}>
       <StatusBar style="dark" />
       
       {/* Header - 고정 */}

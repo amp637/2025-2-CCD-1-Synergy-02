@@ -92,7 +92,7 @@ export default function OnboardingSignUp({ onSignUpComplete }: OnboardingSignUpP
   const isFormValid = name.trim() !== '' && birthdate.trim() !== '' && phone.trim() !== '';
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.safeArea} edges={['bottom']}>
       <StatusBar style="dark" />
 
       {/* Header */}
