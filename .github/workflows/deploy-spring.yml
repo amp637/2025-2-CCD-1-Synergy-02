@@ -56,7 +56,7 @@ jobs:
       - name: Build Docker image
         run: |
           cd BE
-          docker build --platform linux/amd64 -t bokja-backend .
+          docker build --no-cache --platform linux/amd64 -t bokja-backend .
 
       - name: Save Docker image to tar
         run: |
@@ -81,11 +81,11 @@ jobs:
           key: ${{ secrets.EC2_KEY }}
           script: |
             cd /home/ubuntu/
+            docker-compose down || true
+            docker rmi bokja-backend:latest || true
             docker load -i bokja-backend.tar
-            docker stop backend || true
-            docker rm backend || true
             docker image prune -f
-            docker-compose up -d
+            docker-compose up -d --force-recreate
             rm bokja-backend.tar
 
       - name: Remove Github Actions IP from Security group
