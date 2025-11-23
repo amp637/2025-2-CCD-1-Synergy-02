@@ -15,6 +15,6 @@ public class AdminController {
     @PostMapping("/admin/run-batch")
     public ResponseEntity<String> forceRunBatch() {
         eventBatchScheduler.runDailyEventGeneration();
-        return ResponseEntity.ok("배치 수동 실행 성공");
+        return ResponseEntity.ok("배치 수동 실행 성공 !");
     }
 }
