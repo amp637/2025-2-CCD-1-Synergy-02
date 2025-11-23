@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,34 +6,131 @@ import {
   TouchableOpacity,
   ScrollView,
   useWindowDimensions,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import responsive from '../../utils/responsive';
+import { getMedicationTime, updateMedicationTime, setMedicationTime } from '../../api/userApi';
+import { getMedicationTimePresets } from '../../api/presetApi';
 
 interface MorningTimeEditScreenProps {
   onNext?: () => void;
 }
 
 export default function MorningTimeEditScreen({ onNext }: MorningTimeEditScreenProps) {
-  const [selectedTime, setSelectedTime] = useState<string | null>('7시'); // 기존 시간으로 초기화
+  const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [selectedHour, setSelectedHour] = useState<number | null>(null);
+  const [selectedTno, setSelectedTno] = useState<number | null>(null);
+  const [utno, setUtno] = useState<number | null>(null);
+  const [times, setTimes] = useState<Array<{ label: string; hour: number; tno: number }>>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(true);
   const { width } = useWindowDimensions();
   const isTablet = width > 600;
   const MAX_WIDTH = responsive(isTablet ? 420 : 360);
   const insets = useSafeAreaInsets();
 
-  const times = ['6시', '7시', '8시', '9시', '10시', '11시'];
+  const TYPE = 'breakfast';
 
-  const isButtonActive = selectedTime !== null;
+  // 기존 시간 조회 및 프리셋 로드
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setIsLoadingData(true);
+        
+        // 1. 기존 시간 조회 (데이터가 없어도 에러 표시하지 않음)
+        let currentHour: number | null = null;
+        try {
+          const currentTimeResponse = await getMedicationTime(TYPE);
+          if (currentTimeResponse.header?.resultCode === 1000 && currentTimeResponse.body) {
+            currentHour = currentTimeResponse.body.time;
+            setUtno(currentTimeResponse.body.utno);
+            setSelectedHour(currentHour);
+            setSelectedTime(`${currentHour}시`);
+          }
+        } catch (error: any) {
+          // 복약 시간 정보가 없으면 빈 상태로 유지 (에러 표시하지 않음)
+          console.log('복약 시간 정보 없음:', error.response?.status === 404 ? '데이터 없음' : error.message);
+        }
 
-  const handleTimeSelect = (time: string) => {
+        // 2. 프리셋 조회
+        const presetsResponse = await getMedicationTimePresets(TYPE);
+        if (presetsResponse.header?.resultCode === 1000 && presetsResponse.body) {
+          const timeOptions = presetsResponse.body.times.map((preset) => ({
+            label: `${preset.time}시`,
+            hour: preset.time,
+            tno: preset.tno,
+          }));
+          setTimes(timeOptions);
+          
+          // 기존 시간이 있으면 해당하는 tno도 설정
+          if (currentHour !== null) {
+            const matchingPreset = presetsResponse.body.times.find((preset) => preset.time === currentHour);
+            if (matchingPreset) {
+              setSelectedTno(matchingPreset.tno);
+            }
+          }
+        }
+      } catch (error: any) {
+        console.error('프리셋 로드 실패:', error);
+        // 프리셋 로드 실패 시에만 에러 표시
+        Alert.alert('오류', '복약 시간 목록을 불러오는데 실패했습니다.');
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+    loadData();
+  }, []);
+
+  const isButtonActive = selectedTime !== null && !isLoading;
+
+  const handleTimeSelect = (time: string, hour: number, tno: number) => {
     setSelectedTime(time);
+    setSelectedHour(hour);
+    setSelectedTno(tno);
   };
 
-  const handleSubmit = () => {
-    if (isButtonActive) {
-      console.log('선택된 시간:', selectedTime);
-      onNext?.();
+  const handleSubmit = async () => {
+    if (!isButtonActive || selectedHour === null || selectedTno === null) return;
+
+    setIsLoading(true);
+    try {
+      let response;
+      
+      if (utno === null) {
+        // 복약 시간 정보가 없으면 새로 생성
+        console.log('복약 시간 새로 생성:', selectedTno);
+        response = await setMedicationTime(selectedTno);
+      } else {
+        // 복약 시간 정보가 있으면 수정
+        console.log('복약 시간 수정:', utno);
+        response = await updateMedicationTime(utno, {
+          type: TYPE,
+          time: selectedHour,
+        });
+      }
+      
+      if (response.header?.resultCode === 1000) {
+        console.log('복약 시간 저장 성공:', response);
+        // 저장 성공 후 응답에서 utno를 받아서 state 업데이트
+        if (response.body?.utno) {
+          setUtno(response.body.utno);
+        }
+        // 팝업 없이 바로 다음 화면으로 이동
+        onNext?.();
+      } else {
+        throw new Error(response.header?.resultMsg || '복약 시간 저장에 실패했습니다.');
+      }
+    } catch (error: any) {
+      console.error('복약 시간 저장 실패:', error);
+      Alert.alert(
+        '저장 실패',
+        error.response?.data?.header?.resultMsg || error.response?.data?.message || error.message || '복약 시간 저장 중 오류가 발생했습니다.'
+      );
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -57,30 +154,38 @@ export default function MorningTimeEditScreen({ onNext }: MorningTimeEditScreenP
           <Text style={styles.title}>아침 약 시간을 선택하세요.</Text>
 
           {/* Time Buttons Grid */}
-          <View style={styles.timeButtonsContainer}>
-            {times.map((time) => {
-              const isSelected = selectedTime === time;
-              return (
-                <TouchableOpacity
-                  key={time}
-                  style={[
-                    styles.timeButton,
-                    isSelected ? styles.timeButtonSelected : styles.timeButtonUnselected,
-                  ]}
-                  onPress={() => handleTimeSelect(time)}
-                >
-                  <Text 
+          {isLoadingData ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#60584d" />
+              <Text style={styles.loadingText}>시간 정보 불러오는 중...</Text>
+            </View>
+          ) : (
+            <View style={styles.timeButtonsContainer}>
+              {times.map((timeOption) => {
+                const isSelected = selectedTime === timeOption.label;
+                return (
+                  <TouchableOpacity
+                    key={timeOption.hour}
                     style={[
-                      styles.timeButtonText,
-                      isSelected ? styles.timeButtonTextSelected : styles.timeButtonTextUnselected,
+                      styles.timeButton,
+                      isSelected ? styles.timeButtonSelected : styles.timeButtonUnselected,
                     ]}
+                    onPress={() => handleTimeSelect(timeOption.label, timeOption.hour, timeOption.tno)}
+                    disabled={isLoading}
                   >
-                    {time}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+                    <Text 
+                      style={[
+                        styles.timeButtonText,
+                        isSelected ? styles.timeButtonTextSelected : styles.timeButtonTextUnselected,
+                      ]}
+                    >
+                      {timeOption.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
         </View>
       </ScrollView>
 
@@ -94,7 +199,11 @@ export default function MorningTimeEditScreen({ onNext }: MorningTimeEditScreenP
           onPress={handleSubmit}
           disabled={!isButtonActive}
         >
-          <Text style={styles.nextButtonText}>다음으로</Text>
+          {isLoading ? (
+            <ActivityIndicator color="#ffffff" size="small" />
+          ) : (
+            <Text style={styles.nextButtonText}>다음으로</Text>
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -146,23 +255,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row' as any,
     flexWrap: 'wrap' as any,
     justifyContent: 'space-between' as any,
-    gap: 0,
   },
   timeButton: {
-    width: '48%',
-    maxWidth: 148,
-    aspectRatio: 148 / 128,
-    minHeight: 128,
-    borderRadius: 25,
+    width: responsive(164),
+    height: responsive(144),
+    borderRadius: responsive(25),
+    borderWidth: responsive(1),
+    borderColor: '#ffcc02',
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
     marginBottom: responsive(24),
   },
   timeButtonSelected: {
     backgroundColor: '#60584d',
+    borderColor: '#60584d',
   },
   timeButtonUnselected: {
     backgroundColor: '#ffcc02',
+    borderColor: '#ffcc02',
   },
   timeButtonText: {
     fontSize: responsive(48),
@@ -177,17 +287,15 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     position: 'absolute' as any,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingHorizontal: 16,
-    paddingBottom: 36,
+    left: responsive(16),
+    right: responsive(16),
     alignItems: 'center' as any,
   },
   nextButton: {
-    width: 320,
-    height: 66,
-    borderRadius: 200,
+    width: '100%',
+    maxWidth: responsive(360),
+    height: responsive(66),
+    borderRadius: responsive(200),
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
   },
@@ -202,5 +310,16 @@ const styles = StyleSheet.create({
     fontWeight: '700' as any,
     color: '#ffffff',
     lineHeight: responsive(32.4),
+  },
+  loadingContainer: {
+    width: '100%',
+    alignItems: 'center' as any,
+    justifyContent: 'center' as any,
+    paddingVertical: responsive(40),
+  },
+  loadingText: {
+    marginTop: responsive(12),
+    fontSize: responsive(18),
+    color: '#99a1af',
   },
 });

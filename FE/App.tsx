@@ -3,9 +3,6 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView } fr
 import * as SplashScreenExpo from 'expo-splash-screen';
 import { Asset } from 'expo-asset';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import * as Notifications from 'expo-notifications';
-import { setupNotificationListeners, createNotificationChannel } from './src/services/notificationService';
-
 
 // Import all screens
 import SplashScreen from './src/screens/SplashScreen';
@@ -40,8 +37,9 @@ import BedTimeEditScreen from './src/screens/edit/BedTimeEditScreen';
 // 스플래시 화면을 자동으로 숨기지 않도록 설정
 SplashScreenExpo.preventAutoHideAsync();
 
-// 미리 로드할 모든 이미지
-const imageAssets = [
+// 이미지 assets를 lazy loading하기 위한 함수
+// 런타임이 준비된 후에만 require()가 실행되도록 함
+const getImageAssets = () => [
   require('./assets/SplashScreen.png'),
   require('./assets/images/BedTimeIcon.png'),
   require('./assets/images/caution.png'),
@@ -64,10 +62,17 @@ const imageAssets = [
   require('./assets/images/PillImage2.png'),
   require('./assets/images/SwellingEdema.png'),
   require('./assets/images/VoiceWaveIcon.png'),
-  require('./assets/images/Home/내정보수정아이콘.png'),
-  require('./assets/images/Home/약봉투아이콘.png'),
-  require('./assets/images/Home/약아이콘.png'),
-  require('./assets/images/Home/처방전아이콘.png'),
+  require('./assets/images/Home/EditInfoIcon.png'),
+  require('./assets/images/Home/PillBagIcon.png'),
+  require('./assets/images/Home/PillIcon.png'),
+  require('./assets/images/Home/PrescriptionIcon.png'),
+  require('./assets/images/OnboardingSignUpActivate/BokjaLogo2.png'),
+  require('./assets/images/PrescriptionAnalysisResultScreen/CombinationWarning.png'),
+  require('./assets/images/PrescriptionAnalysisResultScreen/Edit.png'),
+  require('./assets/images/PrescriptionIntakeTimeSelectScreen/Morning.png'),
+  require('./assets/images/PrescriptionIntakeTimeSelectScreen/Evening.png'),
+  require('./assets/images/PrescriptionIntakeTimeSelectScreen/Lunch.png'),
+  require('./assets/images/PrescriptionIntakeTimeSelectScreen/Bedtime.png'),
 ];
 
 // 이미지 캐싱 함수
@@ -185,16 +190,18 @@ export default function App() {
   const [selectedTimePeriods, setSelectedTimePeriods] = useState<TimePeriod[]>([]); // 선택된 복약 시간대
   const [currentTimeEditIndex, setCurrentTimeEditIndex] = useState(0); // 현재 수정 중인 시간대 인덱스
   const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null); // 선택된 복약 기록 ID
+  const [isEditingFromPrescription, setIsEditingFromPrescription] = useState(false); // 처방전 상세에서 시간 수정 중인지 여부
+  const [quizWrongCount, setQuizWrongCount] = useState(0); // 퀴즈 오답 횟수 추적
+  const [capturedImageUri, setCapturedImageUri] = useState<string | null>(null); // 촬영된 이미지 URI
+  const [prescriptionUmno, setPrescriptionUmno] = useState<number | null>(null); // 처방전/약봉투 분석 결과 umno
 
   useEffect(() => {
     async function loadResourcesAndDataAsync() {
       try {
-        // 모든 이미지 미리 로드
+        // 모든 이미지 미리 로드 (런타임 준비 후에만 require() 실행)
+        const imageAssets = getImageAssets();
         const imageAssetPromises = cacheImages(imageAssets);
         await Promise.all([...imageAssetPromises]);
-        
-        // 알림 채널 설정 (Android)
-        await createNotificationChannel();
         
         console.log('All assets loaded successfully');
       } catch (e) {
@@ -206,33 +213,6 @@ export default function App() {
     }
 
     loadResourcesAndDataAsync();
-  }, []);
-
-  // 알림 수신 리스너 설정
-  useEffect(() => {
-    const cleanup = setupNotificationListeners(
-      // 포그라운드에서 알림 받을 때
-      (notification) => {
-        console.log('알림 수신:', notification);
-        // 알림 데이터에서 이벤트 타입 확인
-        const data = notification.request.content.data;
-        if (data?.type === 'incoming_call' || data?.type === 'event') {
-          // IncomingCallScreen으로 이동
-          setCurrentScreen('IncomingCallScreen');
-        }
-      },
-      // 알림 클릭 시 (백그라운드/포그라운드 모두)
-      (response) => {
-        console.log('알림 클릭:', response);
-        const data = response.notification.request.content.data;
-        if (data?.type === 'incoming_call' || data?.type === 'event') {
-          // IncomingCallScreen으로 이동
-          setCurrentScreen('IncomingCallScreen');
-        }
-      }
-    );
-
-    return cleanup;
   }, []);
 
   // 스플래시 화면 표시 후 2초 뒤에 OnboardingWelcomeScreen으로 전환
@@ -350,52 +330,74 @@ export default function App() {
       case 'PrescriptionCaptureScreen': return <PrescriptionCaptureScreen 
         mode={captureMode}
         showRetakeMessage={showRetakeMessage}
-        onCapture={() => {
-          // 촬영 즉시 Processing 화면으로 이동
+        onCapture={(imageUri) => {
+          // 촬영 즉시 Processing 화면으로 이동 (이미지 URI 저장)
+          console.log('촬영 완료, 이미지 URI:', imageUri);
+          setCapturedImageUri(imageUri);
           setShowRetakeMessage(false);
           setCurrentScreen('PrescriptionProcessingScreen');
         }}
       />;
       case 'PrescriptionProcessingScreen': return <PrescriptionProcessingScreen 
         mode={captureMode}
-        onSuccess={() => {
-          // OCR 성공 - 약 데이터 추가 후 IntakeTimeSelect로 이동
-          setMedications([
-            {
-              id: 1,
-              category: '감기약',
-              hospital: '가람병원',
-              frequency: 2,
-              startDate: '2025년 10월 5일',
-            },
-            {
-              id: 2,
-              category: '소화제',
-              hospital: '서울병원',
-              frequency: 3,
-              startDate: '2025년 10월 10일',
-            },
-          ]);
-          setCurrentScreen('PrescriptionIntakeTimeSelectScreen');
+        imageUri={capturedImageUri || undefined}
+        onSuccess={(umno) => {
+          // OCR 성공
+          setCapturedImageUri(null); // 이미지 URI 초기화
+          
+          if (umno) {
+            // umno가 있으면 분석 결과 화면으로 이동
+            setPrescriptionUmno(umno);
+            setCurrentScreen('PrescriptionAnalysisResultScreen');
+          } else {
+            // umno가 없으면 약 데이터 추가 후 IntakeTimeSelect로 이동 (레거시)
+            setMedications([
+              {
+                id: 1,
+                category: '감기약',
+                hospital: '가람병원',
+                frequency: 2,
+                startDate: '2025년 10월 5일',
+              },
+              {
+                id: 2,
+                category: '소화제',
+                hospital: '서울병원',
+                frequency: 3,
+                startDate: '2025년 10월 10일',
+              },
+            ]);
+            setCurrentScreen('PrescriptionIntakeTimeSelectScreen');
+          }
         }}
         onFailure={() => {
           // OCR 실패 - Capture로 복귀 + 재촬영 메시지
+          setCapturedImageUri(null); // 이미지 URI 초기화
           setShowRetakeMessage(true);
           setCurrentScreen('PrescriptionCaptureScreen');
         }}
       />;
       case 'PrescriptionIntakeTimeSelectScreen': return <PrescriptionIntakeTimeSelectScreen 
+        umno={prescriptionUmno || 0}
         onNext={(timePeriods) => {
           setSelectedTimePeriods(timePeriods);
           setCurrentScreen('PrescriptionAnalysisResultScreen');
         }} 
       />;
-      case 'PrescriptionAnalysisResultScreen': return <PrescriptionAnalysisResultScreen onGoHome={() => setCurrentScreen('Home')} />;
+      case 'PrescriptionAnalysisResultScreen': return <PrescriptionAnalysisResultScreen 
+        umno={prescriptionUmno || undefined}
+        source={captureMode === 'envelope' ? 'medicationEnvelope' : 'prescription'}
+        onGoHome={() => {
+          setPrescriptionUmno(null);
+          setCurrentScreen('Home');
+        }} 
+      />;
       case 'PrescriptionDetailScreen': return <PrescriptionDetailScreen 
-        medication={medications.find(m => m.id === selectedMedicationId)}
+        umno={prescriptionUmno || selectedMedicationId || 0}
         onGoHome={() => setCurrentScreen('Home')}
         onEditTime={() => {
-          // 시간 수정 시작 - 첫 번째 시간대부터
+          // 시간 수정 시작 - 처방전에서 선택한 시간대만
+          setIsEditingFromPrescription(true);
           setCurrentTimeEditIndex(0);
           if (selectedTimePeriods.length > 0) {
             const firstPeriod = selectedTimePeriods[0];
@@ -437,7 +439,15 @@ export default function App() {
       />;
       case 'HomeScreenList': return <HomeScreenList />;
       case 'OnboardingWelcomeScreen': return <OnboardingWelcomeScreen onStartPress={() => setCurrentScreen('OnboardingSignUp')} />;
-      case 'OnboardingSignUp': return <OnboardingSignUp onSignUpComplete={() => setCurrentScreen('OnboardingAlarmGuide')} />;
+      case 'OnboardingSignUp': return <OnboardingSignUp onSignUpComplete={(isLogin) => {
+        // isLogin이 true면 로그인 성공 → 홈으로 이동
+        // isLogin이 false면 회원가입 성공 → 복약 시간 설정으로 이동
+        if (isLogin) {
+          setCurrentScreen('Home');
+        } else {
+          setCurrentScreen('OnboardingAlarmGuide');
+        }
+      }} />;
       case 'OnboardingAlarmGuide': return <OnboardingAlarmGuide onComplete={() => setCurrentScreen('OnboardingMorningTimeSet')} />;
       case 'OnboardingMorningTimeSet': return <OnboardingMorningTimeSet onNext={() => setCurrentScreen('OnboardingLunchTimeSet')} />;
       case 'OnboardingLunchTimeSet': return <OnboardingLunchTimeSet onNext={() => setCurrentScreen('OnboardingEveningTimeSet')} />;
@@ -445,7 +455,13 @@ export default function App() {
       case 'OnboardingBedTimeSet': return <OnboardingBedTimeSet onComplete={() => setCurrentScreen('Home')} />;
       case 'EditInfoSelect': return <EditInfoSelect 
         onBasicInfo={() => setCurrentScreen('UserInfoEdit')}
-        onMedicationTime={() => setCurrentScreen('MorningTimeEditScreen')}
+        onMedicationTime={() => {
+          // 온보딩처럼 모든 시간대 수정 (아침 → 점심 → 저녁 → 취침)
+          setIsEditingFromPrescription(false);
+          setSelectedTimePeriods(['breakfast', 'lunch', 'dinner', 'bedtime']);
+          setCurrentTimeEditIndex(0);
+          setCurrentScreen('MorningTimeEditScreen');
+        }}
         onExit={() => setCurrentScreen('Home')}
       />;
       case 'UserInfoEdit': return <UserInfoEdit onComplete={() => setCurrentScreen('EditInfoSelect')} />;
@@ -459,8 +475,8 @@ export default function App() {
           else if (nextPeriod === 'dinner') setCurrentScreen('EveningTimeEditScreen');
           else if (nextPeriod === 'bedtime') setCurrentScreen('BedTimeEditScreen');
         } else {
-          // 마지막 시간대면 PrescriptionDetail로 복귀
-          setCurrentScreen('PrescriptionDetailScreen');
+          // 마지막 시간대
+          setCurrentScreen(isEditingFromPrescription ? 'PrescriptionDetailScreen' : 'EditInfoSelect');
         }
       }} />;
       case 'LunchTimeEditScreen': return <LunchTimeEditScreen onNext={() => {
@@ -471,7 +487,7 @@ export default function App() {
           if (nextPeriod === 'dinner') setCurrentScreen('EveningTimeEditScreen');
           else if (nextPeriod === 'bedtime') setCurrentScreen('BedTimeEditScreen');
         } else {
-          setCurrentScreen('PrescriptionDetailScreen');
+          setCurrentScreen(isEditingFromPrescription ? 'PrescriptionDetailScreen' : 'EditInfoSelect');
         }
       }} />;
       case 'EveningTimeEditScreen': return <EveningTimeEditScreen onNext={() => {
@@ -481,12 +497,12 @@ export default function App() {
           const nextPeriod = selectedTimePeriods[nextIndex];
           if (nextPeriod === 'bedtime') setCurrentScreen('BedTimeEditScreen');
         } else {
-          setCurrentScreen('PrescriptionDetailScreen');
+          setCurrentScreen(isEditingFromPrescription ? 'PrescriptionDetailScreen' : 'EditInfoSelect');
         }
       }} />;
       case 'BedTimeEditScreen': return <BedTimeEditScreen onComplete={() => {
-        // 마지막 시간대이므로 PrescriptionDetail로 복귀
-        setCurrentScreen('PrescriptionDetailScreen');
+        // 마지막 시간대 - 어디서 시작했는지에 따라 복귀
+        setCurrentScreen(isEditingFromPrescription ? 'PrescriptionDetailScreen' : 'EditInfoSelect');
       }} />;
       default: return null;
     }
@@ -606,3 +622,4 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 });
+

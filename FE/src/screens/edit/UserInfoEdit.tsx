@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,29 +8,63 @@ import {
   ScrollView,
   useWindowDimensions,
   Modal,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import Svg, { Path, Rect } from 'react-native-svg';
 import responsive from '../../utils/responsive';
+import { getUserInfo, updateUserInfo } from '../../api/userApi';
 
 interface UserInfoEditProps {
   onComplete?: () => void;
 }
 
 export default function UserInfoEdit({ onComplete }: UserInfoEditProps) {
-  // 초기 데이터 - API에서 받아온 사용자 정보로 설정
-  const [name, setName] = useState('홍길동');
-  const [phone, setPhone] = useState('010-1234-5678');
-  const [birthdate, setBirthdate] = useState('1960-01-01');
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [birthdate, setBirthdate] = useState('');
+  const [uno, setUno] = useState<number | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [selectedYear, setSelectedYear] = useState(1960);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(1);
   const [selectedDay, setSelectedDay] = useState(1);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(true);
   const { width } = useWindowDimensions();
   const isTablet = width > 600;
   const MAX_WIDTH = responsive(isTablet ? 420 : 360);
   const insets = useSafeAreaInsets();
+
+  // 사용자 정보 조회
+  useEffect(() => {
+    const loadUserInfo = async () => {
+      try {
+        setIsLoadingData(true);
+        const response = await getUserInfo();
+        if (response.header?.resultCode === 1000 && response.body) {
+          const userData = response.body;
+          setUno(userData.uno);
+          setName(userData.name);
+          setPhone(userData.phone);
+          setBirthdate(userData.birth);
+          
+          // 생년월일 파싱하여 날짜 선택기 초기화
+          const [year, month, day] = userData.birth.split('-').map(Number);
+          setSelectedYear(year);
+          setSelectedMonth(month);
+          setSelectedDay(day);
+        }
+      } catch (error: any) {
+        console.error('사용자 정보 조회 실패:', error);
+        Alert.alert('오류', '사용자 정보를 불러오는데 실패했습니다.');
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+    loadUserInfo();
+  }, []);
 
   // 연도 목록 생성 (현재 년도부터 100년 전까지)
   const currentYear = new Date().getFullYear();
@@ -49,10 +83,49 @@ export default function UserInfoEdit({ onComplete }: UserInfoEditProps) {
     (_, i) => i + 1
   );
 
-  const handleSubmit = () => {
-    console.log('수정 완료 버튼 클릭');
-    console.log({ name, phone, birthdate });
-    onComplete?.();
+  const handleSubmit = async () => {
+    if (!uno || isLoading) return;
+
+    // 유효성 검사
+    if (!name.trim()) {
+      Alert.alert('입력 오류', '이름을 입력해주세요.');
+      return;
+    }
+    if (!phone.trim()) {
+      Alert.alert('입력 오류', '전화번호를 입력해주세요.');
+      return;
+    }
+    if (!birthdate.trim()) {
+      Alert.alert('입력 오류', '생년월일을 선택해주세요.');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await updateUserInfo({
+        uno: uno,
+        name: name.trim(),
+        phone: phone.trim(),
+        birth: birthdate.trim(),
+      });
+      
+      if (response.header?.resultCode === 1000) {
+        console.log('사용자 정보 수정 성공:', response);
+        Alert.alert('수정 완료', '사용자 정보가 수정되었습니다.', [
+          { text: '확인', onPress: () => onComplete?.() },
+        ]);
+      } else {
+        throw new Error(response.header?.resultMsg || '사용자 정보 수정에 실패했습니다.');
+      }
+    } catch (error: any) {
+      console.error('사용자 정보 수정 실패:', error);
+      Alert.alert(
+        '수정 실패',
+        error.response?.data?.header?.resultMsg || error.response?.data?.message || error.message || '사용자 정보 수정 중 오류가 발생했습니다.'
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleDatePickerPress = () => {
@@ -100,11 +173,17 @@ export default function UserInfoEdit({ onComplete }: UserInfoEditProps) {
         </View>
       </View>
 
-      <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + responsive(80) }]}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={[styles.pageWrapper, { maxWidth: MAX_WIDTH }]}>
+      {isLoadingData ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#60584d" />
+          <Text style={styles.loadingText}>사용자 정보 불러오는 중...</Text>
+        </View>
+      ) : (
+        <ScrollView
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + responsive(80) }]}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={[styles.pageWrapper, { maxWidth: MAX_WIDTH }]}>
 
           {/* Name Input Section */}
           <View style={styles.inputSection}>
@@ -180,15 +259,21 @@ export default function UserInfoEdit({ onComplete }: UserInfoEditProps) {
             </View>
           </View>
         </View>
-      </ScrollView>
+        </ScrollView>
+      )}
 
       {/* Submit Button - 항상 활성화 */}
       <View style={[styles.submitButtonContainer, { bottom: insets.bottom + responsive(16) }]}>
         <TouchableOpacity
           style={[styles.submitButton, styles.submitButtonActive, { maxWidth: MAX_WIDTH }]}
           onPress={handleSubmit}
+          disabled={isLoading || isLoadingData}
         >
-          <Text style={styles.submitButtonText}>수정 완료</Text>
+          {isLoading ? (
+            <ActivityIndicator color="#ffffff" size="small" />
+          ) : (
+            <Text style={styles.submitButtonText}>수정 완료</Text>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -489,6 +574,17 @@ const styles = StyleSheet.create({
     fontSize: responsive(20),
     fontWeight: '700' as any,
     color: '#FFFFFF',
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center' as any,
+    justifyContent: 'center' as any,
+    paddingVertical: responsive(40),
+  },
+  loadingText: {
+    marginTop: responsive(12),
+    fontSize: responsive(18),
+    color: '#99a1af',
   },
 });
 

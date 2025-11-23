@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,12 +6,16 @@ import {
   StyleSheet,
   ScrollView,
   useWindowDimensions,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import responsive from '../../utils/responsive';
+import { setMedicationTime } from '../../api/userApi';
+import { getMedicationTimePresets } from '../../api/presetApi';
 
-const timeOptions = [11, 12, 13, 14, 15, 16];
+const TYPE = 'lunch';
 
 interface OnboardingLunchTimeSetProps {
   onNext?: () => void;
@@ -23,18 +27,62 @@ export default function OnboardingLunchTimeSet({ onNext }: OnboardingLunchTimeSe
   const MAX_WIDTH = responsive(isTablet ? 420 : 360);
   const insets = useSafeAreaInsets();
 
-  const [selectedTime, setSelectedTime] = useState<number | null>(null); // 사용자가 선택해야 함
+  const [selectedTime, setSelectedTime] = useState<number | null>(null);
+  const [selectedTno, setSelectedTno] = useState<number | null>(null);
+  const [timeOptions, setTimeOptions] = useState<Array<{ hour: number; tno: number }>>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingPresets, setIsLoadingPresets] = useState(true);
 
-  const isNextButtonActive = selectedTime !== null;
+  // 프리셋 조회
+  useEffect(() => {
+    const loadPresets = async () => {
+      try {
+        setIsLoadingPresets(true);
+        const response = await getMedicationTimePresets(TYPE);
+        if (response.header?.resultCode === 1000 && response.body) {
+          const timeOptionsData = response.body.times.map((preset) => ({
+            hour: preset.time,
+            tno: preset.tno,
+          }));
+          setTimeOptions(timeOptionsData);
+        }
+      } catch (error: any) {
+        console.error('프리셋 조회 실패:', error);
+        Alert.alert('오류', '복약 시간 목록을 불러오는데 실패했습니다.');
+      } finally {
+        setIsLoadingPresets(false);
+      }
+    };
+    loadPresets();
+  }, []);
 
-  const handleTimeSelect = (hour: number) => {
+  const isNextButtonActive = selectedTime !== null && !isLoading;
+
+  const handleTimeSelect = (hour: number, tno: number) => {
     setSelectedTime(hour);
+    setSelectedTno(tno);
   };
 
-  const handleNext = () => {
-    if (isNextButtonActive) {
-      console.log('선택된 점심 약 시간:', selectedTime);
-      onNext?.();
+  const handleNext = async () => {
+    if (!isNextButtonActive || !selectedTno) return;
+
+    setIsLoading(true);
+    try {
+      const response = await setMedicationTime(selectedTno);
+      if (response.header?.resultCode === 1000) {
+        console.log('복약 시간 설정 성공:', response);
+        onNext?.();
+      } else {
+        throw new Error(response.header?.resultMsg || '복약 시간 설정에 실패했습니다.');
+      }
+    } catch (error: any) {
+      console.error('복약 시간 설정 실패:', error);
+      Alert.alert(
+        '설정 실패',
+        error.response?.data?.header?.resultMsg || error.response?.data?.message || error.message || '복약 시간 설정 중 오류가 발생했습니다.'
+      );
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -58,30 +106,38 @@ export default function OnboardingLunchTimeSet({ onNext }: OnboardingLunchTimeSe
           <Text style={styles.title}>점심 약 시간을 선택하세요.</Text>
 
           {/* 시간 버튼 그리드 */}
-          <View style={styles.timeButtonsContainer}>
-            {timeOptions.map((hour) => {
-              const isSelected = selectedTime === hour;
-              return (
-                <TouchableOpacity
-                  key={hour}
-                  style={[
-                    styles.timeButton,
-                    isSelected ? styles.timeButtonSelected : styles.timeButtonUnselected,
-                  ]}
-                  onPress={() => handleTimeSelect(hour)}
-                >
-                  <Text
+          {isLoadingPresets ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#60584d" />
+              <Text style={styles.loadingText}>시간 목록 불러오는 중...</Text>
+            </View>
+          ) : (
+            <View style={styles.timeButtonsContainer}>
+              {timeOptions.map((timeOption) => {
+                const isSelected = selectedTime === timeOption.hour;
+                return (
+                  <TouchableOpacity
+                    key={timeOption.tno}
                     style={[
-                      styles.timeButtonText,
-                      isSelected ? styles.timeButtonTextSelected : styles.timeButtonTextUnselected,
+                      styles.timeButton,
+                      isSelected ? styles.timeButtonSelected : styles.timeButtonUnselected,
                     ]}
+                    onPress={() => handleTimeSelect(timeOption.hour, timeOption.tno)}
+                    disabled={isLoading}
                   >
-                    {hour}시
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+                    <Text
+                      style={[
+                        styles.timeButtonText,
+                        isSelected ? styles.timeButtonTextSelected : styles.timeButtonTextUnselected,
+                      ]}
+                    >
+                      {timeOption.hour}시
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
         </View>
       </ScrollView>
 
@@ -95,14 +151,18 @@ export default function OnboardingLunchTimeSet({ onNext }: OnboardingLunchTimeSe
           onPress={handleNext}
           disabled={!isNextButtonActive}
         >
-          <Text
-            style={[
-              styles.nextButtonText,
-              isNextButtonActive ? styles.nextButtonTextActive : styles.nextButtonTextInactive,
-            ]}
-          >
-            다음으로
-          </Text>
+          {isLoading ? (
+            <ActivityIndicator color="#ffffff" size="small" />
+          ) : (
+            <Text
+              style={[
+                styles.nextButtonText,
+                isNextButtonActive ? styles.nextButtonTextActive : styles.nextButtonTextInactive,
+              ]}
+            >
+              다음으로
+            </Text>
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -154,23 +214,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row' as any,
     flexWrap: 'wrap' as any,
     justifyContent: 'space-between' as any,
-    gap: 0,
   },
   timeButton: {
-    width: '48%',
-    maxWidth: 148,
-    aspectRatio: 148 / 128,
-    minHeight: 128,
-    borderRadius: 25,
+    width: '48%', // 2열 그리드 유지 - scale 제거
+    height: responsive(144), // Increased height
+    borderRadius: responsive(25),
+    borderWidth: responsive(1),
+    borderColor: '#ffcc02', // Unselected border color
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
-    marginBottom: 24,
+    marginBottom: responsive(24), // Vertical spacing
   },
   timeButtonSelected: {
-    backgroundColor: '#60584d',
+    backgroundColor: '#60584d', // Selected background color
+    borderColor: '#60584d',
   },
   timeButtonUnselected: {
-    backgroundColor: '#ffcc02',
+    backgroundColor: '#ffcc02', // Unselected background color
+    borderColor: '#ffcc02',
   },
   timeButtonText: {
     fontSize: responsive(48),
@@ -185,17 +246,15 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     position: 'absolute' as any,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingHorizontal: 16,
-    paddingBottom: 36,
+    left: responsive(16),
+    right: responsive(16),
     alignItems: 'center' as any,
   },
   nextButton: {
-    width: 320,
-    height: 66,
-    borderRadius: 200,
+    width: '100%',
+    maxWidth: responsive(360),
+    height: responsive(66),
+    borderRadius: responsive(200),
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
   },
@@ -216,5 +275,16 @@ const styles = StyleSheet.create({
   },
   nextButtonTextInactive: {
     color: '#ffffff', // Figma shows white text even when inactive
+  },
+  loadingContainer: {
+    width: '100%',
+    alignItems: 'center' as any,
+    justifyContent: 'center' as any,
+    paddingVertical: responsive(40),
+  },
+  loadingText: {
+    marginTop: responsive(12),
+    fontSize: responsive(18),
+    color: '#99a1af',
   },
 });

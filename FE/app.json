@@ -6,7 +6,8 @@
     "orientation": "portrait",
     "icon": "./assets/images/main_icon/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
+    "jsEngine": "jsc",
     "splash": {
       "image": "./assets/images/main_icon/icon.png",
       "resizeMode": "contain",
@@ -16,33 +17,23 @@
       "supportsTablet": true
     },
     "android": {
-      "package": "com.bokjaapp",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/main_icon/icon.png",
         "backgroundColor": "#FFCC02"
       },
       "edgeToEdgeEnabled": true,
-      "permissions": [
-        "USE_FULL_SCREEN_INTENT",
-        "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE",
-        "WAKE_LOCK"
-      ]
+      "package": "com.synergy_dgu.bokjaapp"
     },
     "web": {
       "favicon": "./assets/images/main_icon/icon.png"
     },
     "plugins": [
-      "expo-asset",
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/images/main_icon/icon.png",
-          "color": "#FFCC02",
-          "sounds": [],
-          "mode": "production"
-        }
-      ]
-    ]
+      "expo-asset"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "e1978ac7-7d67-45fa-bf17-72f7e988c73e"
+      }
+    }
   }
 }

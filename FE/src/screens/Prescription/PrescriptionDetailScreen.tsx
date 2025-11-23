@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,10 +7,13 @@ import {
   ScrollView,
   Image,
   useWindowDimensions,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import responsive from '../../utils/responsive';
+import { getMedicationDetail, MedicationDetailResponse } from '../../api/medicationApi';
 
 interface Medicine {
   mdno: number;
@@ -49,61 +52,61 @@ interface SimpleMedication {
 }
 
 interface PrescriptionDetailScreenProps {
-  medication?: SimpleMedication;
+  umno: number; // 복약 정보 ID
   onGoHome?: () => void;
   onEditTime?: () => void;
 }
 
-export default function PrescriptionDetailScreen({ medication, onGoHome, onEditTime }: PrescriptionDetailScreenProps) {
+export default function PrescriptionDetailScreen({ umno, onGoHome, onEditTime }: PrescriptionDetailScreenProps) {
   const { width } = useWindowDimensions();
   const isTablet = width > 600;
   const MAX_WIDTH = responsive(isTablet ? 420 : 360);
   const insets = useSafeAreaInsets();
 
-  // 전달받은 medication 데이터 사용, 없으면 기본값
-  const [categoryText, setCategoryText] = useState(medication?.category || '복통약');
+  const [prescriptionData, setPrescriptionData] = useState<PrescriptionData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // 임시 데이터 - 실제로는 API에서 받아옴
-  // GET /api/v1/users/me/medications/{umno}
-  const prescriptionData: PrescriptionData = {
-    uno: medication?.id || 1,
-    umno: medication?.id || 1,
-    hospital: medication?.hospital || '가람병원',
-    category: categoryText || medication?.category || '복통약',
-    taken: medication?.frequency || 3,
-    combination: 'breakfast,lunch,dinner',
-    date: medication?.startDate,
-    medicines: [
-      {
-        mdno: 1,
-        name: '이부프로펜 200mg',
-        classification: '소염진통제',
-        description: '💊 두통, 복통, 설사가 나타날 수 있습니다',
-        warning: {
-          title: '병용 섭취 주의',
-          items: ['녹차, 오미자'],
-        },
-      },
-      {
-        mdno: 2,
-        name: '이부프로펜 200mg',
-        classification: '소염진통제',
-        description: '💊 두통, 복통, 설사가 나타날 수 있습니다',
-        warning: {
-          title: '병용 섭취 주의',
-          items: ['녹차, 오미자'],
-        },
-      },
-    ],
-  };
+  // 복약 상세 정보 조회
+  useEffect(() => {
+    const loadMedicationDetail = async () => {
+      try {
+        setIsLoading(true);
+        const response = await getMedicationDetail(umno);
+        if (response.header?.resultCode === 1000 && response.body) {
+          const data = response.body;
+          setPrescriptionData({
+            uno: 0, // 필요시 추가
+            umno: data.umno,
+            hospital: data.hospital,
+            category: data.category,
+            taken: data.taken,
+            combination: data.comb,
+            medicines: data.medicines.map((med) => ({
+              mdno: med.mdno,
+              name: med.name,
+              classification: med.classification,
+              image: med.image,
+              description: med.description,
+              information: med.information,
+              materials: med.materials,
+            })),
+          });
+        }
+      } catch (error: any) {
+        console.error('복약 상세 정보 조회 실패:', error);
+        Alert.alert('오류', '복약 정보를 불러오는데 실패했습니다.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadMedicationDetail();
+  }, [umno]);
 
   const handleGoHome = () => {
-    console.log("홈으로 이동");
     onGoHome?.();
   };
 
   const handleEditTime = () => {
-    console.log("시간 수정");
     onEditTime?.();
   };
 
@@ -118,39 +121,45 @@ export default function PrescriptionDetailScreen({ medication, onGoHome, onEditT
         </View>
       </View>
 
-      <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + responsive(120) }]}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={[styles.pageWrapper, { maxWidth: MAX_WIDTH }]}>
-          {/* 카테고리 및 병원 정보 섹션 */}
-          <View style={styles.infoSection}>
-            <View style={styles.topRow}>
-              {/* 카테고리 태그 */}
-              <View style={styles.medicineTag}>
-                <Text style={styles.medicineTagText}>{prescriptionData.category}</Text>
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#60584d" />
+          <Text style={styles.loadingText}>복약 정보 불러오는 중...</Text>
+        </View>
+      ) : prescriptionData ? (
+        <ScrollView
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + responsive(120) }]}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={[styles.pageWrapper, { maxWidth: MAX_WIDTH }]}>
+            {/* 카테고리 및 병원 정보 섹션 */}
+            <View style={styles.infoSection}>
+              <View style={styles.topRow}>
+                {/* 카테고리 태그 */}
+                <View style={styles.medicineTag}>
+                  <Text style={styles.medicineTagText}>{prescriptionData.category}</Text>
+                </View>
+                
+                {/* 시간 수정 버튼 */}
+                <TouchableOpacity onPress={handleEditTime} style={styles.editTimeButton}>
+                  <Image 
+                    source={require('../../../assets/images/PencilIcon.png')}
+                    style={styles.editTimeIcon}
+                    resizeMode="contain"
+                  />
+                  <Text style={styles.editTimeText}>시간 수정</Text>
+                </TouchableOpacity>
               </View>
-              
-              {/* 시간 수정 버튼 */}
-              <TouchableOpacity onPress={handleEditTime} style={styles.editTimeButton}>
-                <Image 
-                  source={require('../../../assets/images/PencilIcon.png')}
-                  style={styles.editTimeIcon}
-                  resizeMode="contain"
-                />
-                <Text style={styles.editTimeText}>시간 수정</Text>
-              </TouchableOpacity>
+
+              {/* 병원 정보 */}
+              <Text style={styles.hospitalInfo}>
+                {prescriptionData.hospital} - 1일 {prescriptionData.taken}회
+              </Text>
             </View>
 
-            {/* 병원 정보 */}
-            <Text style={styles.hospitalInfo}>
-              {prescriptionData.hospital} - 1일 {prescriptionData.taken}회
-            </Text>
-          </View>
-
-          {/* 약 카드 섹션 */}
-          <View style={styles.medicationCard}>
-            {prescriptionData.medicines.map((medicine, index) => (
+            {/* 약 카드 섹션 */}
+            <View style={styles.medicationCard}>
+              {prescriptionData.medicines.map((medicine, index) => (
               <View key={medicine.mdno} style={styles.medicationItemWrapper}>
                 <View style={styles.medicationLeftBar} />
                 <View style={styles.medicationContentWrapper}>
@@ -188,10 +197,11 @@ export default function PrescriptionDetailScreen({ medication, onGoHome, onEditT
                   )}
                 </View>
               </View>
-            ))}
+              ))}
+            </View>
           </View>
-        </View>
-      </ScrollView>
+        </ScrollView>
+      ) : null}
 
       {/* 하단 고정 버튼 */}
       <View style={[styles.buttonContainer, { bottom: insets.bottom + responsive(36) }]}>
@@ -402,5 +412,16 @@ const styles = StyleSheet.create({
     fontSize: responsive(27),
     fontWeight: '700' as any,
     color: '#FFFFFF',
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center' as any,
+    justifyContent: 'center' as any,
+    paddingVertical: responsive(40),
+  },
+  loadingText: {
+    marginTop: responsive(12),
+    fontSize: responsive(18),
+    color: '#99a1af',
   },
 });

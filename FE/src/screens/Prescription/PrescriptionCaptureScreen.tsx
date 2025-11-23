@@ -7,15 +7,41 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
+import * as FileSystem from 'expo-file-system';
+import * as ImageManipulator from 'expo-image-manipulator';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import responsive from '../../utils/responsive';
+import { RootStackParamList } from '../../navigation/Router';
+
+type PrescriptionCaptureScreenRouteProp = RouteProp<RootStackParamList, 'PrescriptionCapture'>;
+type PrescriptionCaptureScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'PrescriptionCapture'>;
 
 interface PrescriptionCaptureScreenProps {
   mode?: 'prescription' | 'envelope';
-  onCapture?: () => void; // 촬영 즉시 Processing으로 이동
+  onCapture?: (imageUri: string) => void; // 촬영 즉시 Processing으로 이동 (이미지 URI 전달)
   showRetakeMessage?: boolean; // 실패 시 다시 돌아왔을 때 메시지 표시
 }
 
-export default function PrescriptionCaptureScreen({ mode = 'prescription', onCapture, showRetakeMessage: initialShowRetake = false }: PrescriptionCaptureScreenProps) {
+export default function PrescriptionCaptureScreen({ mode: propMode, onCapture, showRetakeMessage: initialShowRetake = false }: PrescriptionCaptureScreenProps) {
+  // 네비게이션 사용 시도 (NavigationContainer 안에 있을 때만 사용 가능)
+  // App.tsx에서 직접 사용되는 경우를 대비해 안전하게 처리
+  let navigation: PrescriptionCaptureScreenNavigationProp | null = null;
+  let route: PrescriptionCaptureScreenRouteProp | null = null;
+  
+  // useNavigation과 useRoute는 Hook이므로 항상 호출해야 하지만, NavigationContainer 밖에서는 에러 발생 가능
+  try {
+    navigation = useNavigation<PrescriptionCaptureScreenNavigationProp>();
+    route = useRoute<PrescriptionCaptureScreenRouteProp>();
+  } catch (error: any) {
+    // NavigationContainer 밖에서 렌더링되는 경우 (예: App.tsx에서 직접 사용)
+    // 이 경우 onCapture 콜백을 통해 화면 전환 처리
+    navigation = null;
+    route = null;
+  }
+  
+  // route.params에서 mode를 가져오거나 propMode를 사용
+  const mode = route?.params?.mode || propMode || 'prescription';
   const [showRetakeMessage, setShowRetakeMessage] = useState(initialShowRetake);
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
@@ -42,23 +68,65 @@ export default function PrescriptionCaptureScreen({ mode = 'prescription', onCap
     if (!cameraRef.current) return;
     
     try {
-      // 카메라로 사진 촬영
+      // 카메라로 사진 촬영 (최고 화질 유지)
       const photo = await cameraRef.current.takePictureAsync({
-        quality: 1,
+        quality: 1, // 최고 화질 유지
         base64: false,
       });
       
-      console.log('촬영된 사진:', photo.uri);
+      // URI 확인
+      if (!photo || !photo.uri) {
+        setShowRetakeMessage(true);
+        setTimeout(() => {
+          setShowRetakeMessage(false);
+        }, 3000);
+        return;
+      }
       
-      // 촬영 즉시 Processing 화면으로 이동
+      // 이미지 파일 크기 확인 및 압축
+      let finalImageUri = photo.uri;
+      
+      try {
+        const fileInfo = await FileSystem.getInfoAsync(photo.uri);
+        if (fileInfo.exists && fileInfo.size !== undefined) {
+          // 파일 크기가 5MB 이상이면 압축
+          if (fileInfo.size > 5 * 1024 * 1024) { // 5MB 이상
+            // 이미지 압축 (최대 너비 1920px, 품질 0.8)
+            const manipulatedImage = await ImageManipulator.manipulateAsync(
+              photo.uri,
+              [{ resize: { width: 1920 } }], // 최대 너비 1920px로 리사이즈
+              {
+                compress: 0.8, // 품질 80% (0.0 ~ 1.0)
+                format: ImageManipulator.SaveFormat.JPEG,
+              }
+            );
+            
+            finalImageUri = manipulatedImage.uri;
+          }
+        }
+      } catch (fileError) {
+        // 압축 실패 시 원본 이미지 사용
+        finalImageUri = photo.uri;
+      }
+      
+      // 촬영 즉시 Processing 화면으로 이동 (압축된 이미지 URI 전달)
       // Processing 화면에서 API 호출 및 결과 처리
-      onCapture?.();
-      
-      // TODO: 실제 구현 시
-      // 1. 촬영 즉시 Processing 화면으로 이동
-      // 2. Processing 화면에서 API 호출
-      // 3. 성공 시 IntakeTimeSelect로 이동
-      // 4. 실패 시 다시 Capture로 복귀 + showRetakeMessage=true
+      if (onCapture) {
+        // 콜백이 있으면 콜백 사용 (App.tsx에서 사용되는 경우)
+        onCapture(finalImageUri);
+      } else if (navigation) {
+        // NavigationContainer 안에 있을 때는 네비게이션 사용
+        navigation.navigate('PrescriptionProcessing', {
+          imageUri: finalImageUri,
+          mode: mode,
+        });
+      } else {
+        // 네비게이션도 콜백도 없는 경우 에러
+        setShowRetakeMessage(true);
+        setTimeout(() => {
+          setShowRetakeMessage(false);
+        }, 3000);
+      }
       
     } catch (error) {
       console.error('촬영 오류:', error);

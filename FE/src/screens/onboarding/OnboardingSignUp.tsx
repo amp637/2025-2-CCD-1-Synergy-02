@@ -8,17 +8,23 @@ import {
   ScrollView,
   useWindowDimensions,
   Modal,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import Svg, { Path, Rect } from 'react-native-svg';
 import responsive from '../../utils/responsive';
+import { getFcmToken } from '../../utils/fcmToken';
+import { signUp, login } from '../../api/authApi';
 
 interface OnboardingSignUpProps {
-  onSignUpComplete?: () => void;
+  onSignUpComplete?: (isLogin?: boolean) => void; // isLogin: true면 로그인, false면 회원가입
 }
 
 export default function OnboardingSignUp({ onSignUpComplete }: OnboardingSignUpProps) {
+  // App.tsx에서 직접 사용되는 경우를 대비해 onSignUpComplete 콜백만 사용
+  // NavigationContainer 안에서 사용되는 경우에도 콜백을 통해 화면 전환 처리
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [birthdate, setBirthdate] = useState('');
@@ -26,6 +32,7 @@ export default function OnboardingSignUp({ onSignUpComplete }: OnboardingSignUpP
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedDay, setSelectedDay] = useState(new Date().getDate());
+  const [isLoading, setIsLoading] = useState(false);
   const { width } = useWindowDimensions();
   const isTablet = width > 600;
   const MAX_WIDTH = responsive(isTablet ? 420 : 360);
@@ -48,10 +55,125 @@ export default function OnboardingSignUp({ onSignUpComplete }: OnboardingSignUpP
     (_, i) => i + 1
   );
 
-  const handleSubmit = () => {
-    console.log('회원가입 버튼 클릭');
-    console.log({ name, phone, birthdate });
-    onSignUpComplete?.();
+  const handleSubmit = async () => {
+    if (!isFormValid || isLoading) return;
+
+    setIsLoading(true);
+    try {
+      console.log('회원가입 시작...');
+      
+      // 1. FCM 토큰 받아오기 (없어도 회원가입 진행)
+      // PlatformConstants 에러 방지를 위해 FCM 토큰 기능 일시적으로 비활성화
+      // TODO: New Architecture 문제 해결 후 재활성화
+      console.log('FCM 토큰 요청 중...');
+      let fcmToken: string | null = null;
+      
+      try {
+        // 런타임이 완전히 준비될 때까지 충분히 대기
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        fcmToken = await getFcmToken();
+        
+        if (!fcmToken) {
+          console.warn('FCM 토큰을 받지 못했습니다. 알림이 제한될 수 있습니다.');
+          // FCM 토큰이 없어도 회원가입은 진행합니다
+        } else {
+          console.log('FCM 토큰 받기 성공:', fcmToken);
+        }
+      } catch (error) {
+        console.warn('FCM 토큰 가져오기 실패 (회원가입은 계속 진행):', error);
+        // 에러가 발생해도 회원가입은 진행합니다
+        fcmToken = null;
+      }
+
+      // 2. 회원가입 API 호출
+      console.log('회원가입 API 호출 중...');
+      console.log('회원가입 데이터:', { name: name.trim(), phone: phone.trim(), birth: birthdate.trim() });
+      
+      // 백엔드는 "birth" 필드명을 사용하고 LocalDate 타입을 받습니다 (YYYY-MM-DD 형식)
+      // FCM 토큰이 없으면 빈 문자열로 전송 (백엔드에서 nullable로 처리)
+      const signUpData = {
+        name: name.trim(),
+        phone: phone.trim(),
+        birth: birthdate.trim(), // 백엔드 필드명에 맞춤
+        fcmToken: fcmToken || '', // FCM 토큰이 없으면 빈 문자열
+      };
+
+      const response = await signUp(signUpData);
+      
+      console.log('회원가입 응답:', response);
+      
+      // 백엔드 응답 형식: { header: { resultCode: 1000, resultMsg: "회원가입 성공" }, body: { uno: ... } }
+      if (response.header?.resultCode === 1000 && response.body) {
+        console.log('회원가입 성공:', response);
+        // JWT 토큰은 응답 헤더의 Authorization에 포함됩니다
+        // 성공 시 알림 없이 바로 다음 화면으로 이동
+        setIsLoading(false);
+        onSignUpComplete?.(false); // false = 회원가입 성공
+      } else {
+        // 응답은 받았지만 resultCode가 1000이 아닌 경우
+        console.warn('회원가입 응답 코드가 1000이 아님:', response);
+        throw new Error(response.header?.resultMsg || '회원가입에 실패했습니다.');
+      }
+    } catch (error: any) {
+      console.error('회원가입 오류:', error);
+      console.error('에러 상세:', {
+        message: error.message,
+        response: error.response,
+        status: error.response?.status,
+        data: error.response?.data,
+      });
+      
+      // 409 Conflict 에러 처리 (이미 가입한 사용자) - 팝업 없이 자동 로그인
+      if (error.response?.status === 409 || error.response?.data?.header?.resultCode === 2001) {
+        console.log('이미 가입된 사용자 감지, 자동 로그인 시도...');
+        
+        try {
+          // 자동 로그인 시도
+          const loginData = {
+            name: name.trim(),
+            phone: phone.trim(),
+            birth: birthdate.trim(),
+          };
+          
+          const loginResponse = await login(loginData);
+          
+          if (loginResponse.header?.resultCode === 1000) {
+            console.log('자동 로그인 성공:', loginResponse);
+            // 로그인 성공 시 복약 시간 설정 건너뛰고 홈 화면으로 이동
+            setIsLoading(false);
+            // 콜백에 로그인 여부 전달 (true = 로그인 성공)
+            onSignUpComplete?.(true);
+          } else {
+            throw new Error(loginResponse.header?.resultMsg || '로그인에 실패했습니다.');
+          }
+        } catch (loginError: any) {
+          console.error('자동 로그인 실패:', loginError);
+          Alert.alert(
+            '로그인 실패',
+            loginError.response?.data?.header?.resultMsg || loginError.response?.data?.message || loginError.message || '로그인 중 오류가 발생했습니다.',
+            [{ text: '확인', onPress: () => setIsLoading(false) }]
+          );
+        }
+      } else {
+        // 기타 에러 처리
+        const errorMessage = error.response?.data?.header?.resultMsg 
+          || error.response?.data?.message 
+          || error.message 
+          || `회원가입 중 오류가 발생했습니다. (상태 코드: ${error.response?.status || '알 수 없음'})`;
+        
+        console.error('회원가입 실패 상세:', {
+          status: error.response?.status,
+          code: error.response?.data?.header?.resultCode,
+          message: errorMessage,
+        });
+        
+        Alert.alert(
+          '회원가입 실패',
+          errorMessage + '\n\n다시 시도해주세요.',
+          [{ text: '확인', onPress: () => setIsLoading(false) }]
+        );
+      }
+    }
   };
 
   const handleDatePickerPress = () => {
@@ -190,18 +312,22 @@ export default function OnboardingSignUp({ onSignUpComplete }: OnboardingSignUpP
         <TouchableOpacity
           style={[
             styles.submitButton,
-            isFormValid ? styles.submitButtonActive : styles.submitButtonDeactive
+            isFormValid && !isLoading ? styles.submitButtonActive : styles.submitButtonDeactive
           ]}
           onPress={handleSubmit}
           activeOpacity={0.8}
-          disabled={!isFormValid}
+          disabled={!isFormValid || isLoading}
         >
-          <Text style={[
-            styles.submitButtonText,
-            isFormValid ? styles.submitButtonTextActive : styles.submitButtonTextDeactive
-          ]}>
-            회원가입
-          </Text>
+          {isLoading ? (
+            <ActivityIndicator color="#ffffff" size="small" />
+          ) : (
+            <Text style={[
+              styles.submitButtonText,
+              isFormValid && !isLoading ? styles.submitButtonTextActive : styles.submitButtonTextDeactive
+            ]}>
+              회원가입
+            </Text>
+          )}
         </TouchableOpacity>
       </View>
 
