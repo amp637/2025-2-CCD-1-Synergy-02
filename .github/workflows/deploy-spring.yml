@@ -1,0 +1,70 @@
+name: Deploy Spring Boot App to EC2
+
+on:
+  push:
+    branches: [ develop ]
+    paths:
+      - 'BE/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Create Secret Files
+        run: |
+          mkdir -p BE/src/main/resources
+          echo "${{ secrets.TTS_TOKEN_JSON }}" > BE/src/main/resources/tts-token.json
+          echo "${{ secrets.FCM_TOKEN_JSON }}" > BE/src/main/resources/fcm-token.json
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x BE/gradlew
+
+      - name: Build Spring Boot app
+        run: |
+          cd BE
+          ./gradlew clean build -x test
+
+      - name: Build Docker image
+        run: |
+          cd BE
+          docker build --platform linux/amd64 -t bokja-backend .
+
+      - name: Save Docker image to tar
+        run: |
+          cd BE
+          docker save -o bokja-backend.tar bokja-backend
+
+      - name: Copy files to EC2
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_KEY }}
+          source: "BE/bokja-backend.tar, BE/docker-compose.yml"
+          target: "/home/ubuntu/"
+          strip_components: 1
+
+      - name: Deploy on EC2
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_KEY }}
+          script: |
+            cd /home/ubuntu/
+            docker load -i bokja-backend.tar
+            docker stop backend || true
+            docker rm backend || true
+            docker image prune -f
+            docker-compose up -d
+            rm bokja-backend.tar
