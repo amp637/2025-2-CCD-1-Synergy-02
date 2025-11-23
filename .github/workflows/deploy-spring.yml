@@ -83,7 +83,7 @@ jobs:
             set -e
             cd /home/ubuntu/
             docker-compose down
-            # docker rmi bokja-backend:latest
+            docker rmi bokja-backend:latest
             docker load -i bokja-backend.tar
             docker image prune -f
             docker-compose up -d --force-recreate
