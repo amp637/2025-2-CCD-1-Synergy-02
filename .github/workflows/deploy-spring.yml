@@ -42,8 +42,8 @@ jobs:
       - name: Create Secret Files
         run: |
           mkdir -p BE/src/main/resources
-          echo "${{ secrets.TTS_TOKEN_JSON }}" > BE/src/main/resources/tts-token.json
-          echo "${{ secrets.FCM_TOKEN_JSON }}" > BE/src/main/resources/fcm-token.json
+          echo "${{ secrets.TTS_TOKEN_JSON }}" | base64 -d > BE/src/main/resources/tts-token.json
+          echo "${{ secrets.FCM_TOKEN_JSON }}" | base64 -d > BE/src/main/resources/fcm-token.json
 
       - name: Grant execute permission for gradlew
         run: chmod +x BE/gradlew
