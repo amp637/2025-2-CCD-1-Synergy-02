@@ -1,7 +1,7 @@
 version: '3.8'
 services:
   backend:
-    image: bokja-backend
+    image: bokja-backend:latest
     ports:
       - "8080:8080"
     env_file:
