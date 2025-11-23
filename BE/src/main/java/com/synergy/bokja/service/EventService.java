@@ -155,7 +155,7 @@ public class EventService {
 
             // 동적 설명 생성
             String category = med.getCategory();
-            String dynamicDescription = String.format("%s약 먹을 시간이에요! 아래 퀴즈를 풀어주세요", category);
+            String dynamicDescription = String.format("%s 먹을 시간이에요! 아래 퀴즈를 풀어주세요", category);
 
             DescriptionEntity newDescription = DescriptionEntity.builder()
                     .userMedicine(med)
