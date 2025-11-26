@@ -95,6 +95,10 @@ const IntakeRecordDetailsScreen = React.memo(({ onExit }: IntakeRecordDetailsScr
       <ScrollView
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + responsive(20) }]}
         showsVerticalScrollIndicator={false}
+        minimumZoomScale={1}
+        maximumZoomScale={3}
+        pinchGestureEnabled
+        centerContent
       >
         <View style={[styles.pageWrapper, { maxWidth: MAX_WIDTH }]}>
           {/* 약 정보 섹션 */}
