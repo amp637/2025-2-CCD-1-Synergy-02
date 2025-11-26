@@ -28,6 +28,7 @@ public class PresetController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Invalid or expired token");
         }
 
+        Long uno = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         MedicationTimePresetResponseDTO result = presetService.getTimeList(type);
         BaseResponse<MedicationTimePresetResponseDTO> response =
                 new BaseResponse<>(1000, "복약 설정 시간 조회 성공", result);
@@ -42,6 +43,7 @@ public class PresetController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Invalid or expired token");
         }
 
+        Long uno = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         SideEffectPresetResponseDTO result = presetService.getEffectList();
         BaseResponse<SideEffectPresetResponseDTO> response =
                 new BaseResponse<>(1000, "부작용 리스트 조회 성공", result);

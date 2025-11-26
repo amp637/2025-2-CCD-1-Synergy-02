@@ -8,71 +8,90 @@ import {
   ScrollView,
   useWindowDimensions,
   InteractionManager,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import responsive from '../../utils/responsive';
+import { getUserReports } from '../../api/reportApi';
+import PinchZoomScrollView from '../../components/PinchZoomScrollView';
 
 interface RecordItem {
   id: string;
   title: string;
   dateRange: string;
+  rno: number;
 }
 
 interface IntakeRecordListScreenProps {
-  onRecordPress?: (recordId: string) => void;
+  onRecordPress?: (recordId: string, rno: number) => void;
   onExit?: () => void;
 }
 
 const IntakeRecordListScreen = React.memo(({ onRecordPress, onExit }: IntakeRecordListScreenProps) => {
   const [isInteractionComplete, setIsInteractionComplete] = useState(false);
+  const [records, setRecords] = useState<RecordItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const { width } = useWindowDimensions();
   const isTablet = width > 600;
   const MAX_WIDTH = responsive(isTablet ? 420 : 360);
   const insets = useSafeAreaInsets();
 
-  // 샘플 데이터 (스크롤 테스트용으로 여러 개 추가)
-  const records: RecordItem[] = [
-    {
-      id: '1',
-      title: '가람병원(소화불량)',
-      dateRange: '2025년 10월 14일 - 2025년 10월 25일',
-    },
-    {
-      id: '2',
-      title: '서울병원(두통)',
-      dateRange: '2025년 10월 10일 - 2025년 10월 20일',
-    },
-    {
-      id: '3',
-      title: '강남병원(감기)',
-      dateRange: '2025년 9월 14일 - 2025년 9월 25일',
-    },
-    {
-      id: '4',
-      title: '연세병원(고혈압)',
-      dateRange: '2025년 9월 1일 - 2025년 9월 30일',
-    },
-    {
-      id: '5',
-      title: '삼성병원(당뇨)',
-      dateRange: '2025년 8월 14일 - 2025년 8월 25일',
-    },
-    {
-      id: '6',
-      title: '서울대병원(알레르기)',
-      dateRange: '2025년 8월 1일 - 2025년 8월 10일',
-    },
-    {
-      id: '7',
-      title: '가톨릭병원(복통)',
-      dateRange: '2025년 7월 14일 - 2025년 7월 25일',
-    },
-    {
-      id: '8',
-      title: '세브란스병원(피부질환)',
-      dateRange: '2025년 7월 1일 - 2025년 7월 15일',
-    },
-  ];
+  // 리포트 목록 로드
+  useEffect(() => {
+    const loadReports = async () => {
+      try {
+        setIsLoading(true);
+        console.log('[IntakeRecordListScreen] 리포트 목록 로드 시작');
+        
+        const response = await getUserReports();
+        console.log('[IntakeRecordListScreen] 리포트 목록 응답:', response);
+        
+        if (response.header?.resultCode === 1000) {
+          if (response.body?.report_list && response.body.report_list.length > 0) {
+            const reportList: RecordItem[] = response.body.report_list.map((report) => ({
+              id: report.rno.toString(),
+              rno: report.rno,
+              title: `${report.hospital}(${report.category})`,
+              dateRange: `${report.start_date} - ${report.end_date}`,
+            }));
+            console.log('[IntakeRecordListScreen] 리포트 목록 변환 완료:', reportList.length, '개');
+            setRecords(reportList);
+          } else {
+            console.log('[IntakeRecordListScreen] 리포트 목록이 비어있습니다.');
+            setRecords([]);
+          }
+        } else {
+          console.warn('[IntakeRecordListScreen] 리포트 목록 조회 실패:', response.header?.resultMsg);
+          setRecords([]);
+        }
+      } catch (error: any) {
+        console.error('[IntakeRecordListScreen] 리포트 목록 로드 실패:', error);
+        console.error('[IntakeRecordListScreen] 에러 타입:', error.constructor.name);
+        console.error('[IntakeRecordListScreen] 에러 메시지:', error.message);
+        if (error.response) {
+          console.error('[IntakeRecordListScreen] 응답 상태:', error.response.status);
+          console.error('[IntakeRecordListScreen] 응답 데이터:', JSON.stringify(error.response.data, null, 2));
+        } else if (error.request) {
+          console.error('[IntakeRecordListScreen] 요청은 보냈지만 응답을 받지 못함');
+        }
+        
+        // 복약 정보가 없는 경우는 에러로 표시하지 않고 빈 목록으로 처리
+        if (error.response?.status === 400 || 
+            error.response?.data?.header?.resultMsg?.includes('복약 정보가 존재하지 않습니다')) {
+          console.log('[IntakeRecordListScreen] 복약 정보가 없어 빈 목록으로 표시');
+          setRecords([]);
+        } else {
+          Alert.alert('오류', error.response?.data?.header?.resultMsg || '리포트 목록을 불러오는데 실패했습니다.');
+          setRecords([]);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadReports();
+  }, []);
 
   // 화면 전환 애니메이션 이후에 실행
   useEffect(() => {
@@ -84,9 +103,9 @@ const IntakeRecordListScreen = React.memo(({ onRecordPress, onExit }: IntakeReco
     return () => interactionPromise.cancel();
   }, []);
 
-  const handleRecordPress = useCallback((recordId: string) => {
-    console.log('기록 선택:', recordId);
-    onRecordPress?.(recordId);
+  const handleRecordPress = useCallback((recordId: string, rno: number) => {
+    console.log('기록 선택:', recordId, 'rno:', rno);
+    onRecordPress?.(recordId, rno);
   }, [onRecordPress]);
 
   const handleExit = useCallback(() => {
@@ -105,31 +124,49 @@ const IntakeRecordListScreen = React.memo(({ onRecordPress, onExit }: IntakeReco
         </View>
       </View>
 
-      <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + responsive(20) }]}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={[styles.pageWrapper, { maxWidth: MAX_WIDTH }]}>
-          {/* 기록 리스트 */}
-          {records.map((record) => (
-            <TouchableOpacity
-              key={record.id}
-              style={styles.recordCard}
-              onPress={() => handleRecordPress(record.id)}
-            >
-              <View style={styles.recordContainer}>
-                <View style={styles.recordTextContainer}>
-                  <Text style={styles.recordTitle}>{record.title}</Text>
-                  <Text style={styles.recordDate}>{record.dateRange}</Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          ))}
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#60584d" />
+          <Text style={styles.loadingText}>리포트 목록 불러오는 중...</Text>
         </View>
-      </ScrollView>
+      ) : (
+        <PinchZoomScrollView
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + responsive(66) + responsive(16) + responsive(16) }]}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={[styles.pageWrapper, { maxWidth: MAX_WIDTH }]}>
+            {/* 기록 리스트 */}
+            {records.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>등록된 리포트가 없습니다.</Text>
+              </View>
+            ) : (
+              records.map((record) => (
+                <TouchableOpacity
+                  key={record.id}
+                  style={styles.recordCard}
+                  onPress={() => handleRecordPress(record.id, record.rno)}
+                >
+                  <View style={styles.recordContainer}>
+                    <View style={styles.recordTextContainer}>
+                      <Text style={styles.recordTitle}>{record.title}</Text>
+                      <Text style={styles.recordDate}>{record.dateRange}</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))
+            )}
+          </View>
+        </PinchZoomScrollView>
+      )}
 
-      {/* 하단 고정 버튼 */}
-      <View style={styles.exitButtonContainer}>
+      {/* 하단 전체를 덮는 그라데이션 (버튼 포함!) */}
+      <View style={[styles.bottomFadeContainer, { paddingBottom: insets.bottom + responsive(16) }]}>
+        <LinearGradient
+          colors={['transparent', '#F6F7F8']}
+          style={styles.gradient}
+        />
+        {/* 버튼은 그라데이션 내부에 배치 */}
         <TouchableOpacity style={styles.exitButton} onPress={handleExit}>
           <Text style={styles.exitButtonText}>나가기</Text>
         </TouchableOpacity>
@@ -200,27 +237,58 @@ const styles = StyleSheet.create({
     color: '#6A7282',
     lineHeight: responsive(16.8),
   },
-  exitButtonContainer: {
+  bottomFadeContainer: {
     position: 'absolute',
-    left: responsive(16),
-    right: responsive(16),
-    bottom: responsive(36),
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingTop: responsive(32),
     alignItems: 'center' as any,
+    zIndex: 10,
+  },
+  gradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    top: 0,
   },
   exitButton: {
-    width: '100%',
+    width: '90%',
     maxWidth: responsive(360),
     height: responsive(66),
     backgroundColor: '#60584D',
     borderRadius: responsive(200),
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
+    zIndex: 20,
   },
   exitButtonText: {
     fontWeight: '700' as '700',
     fontSize: responsive(27),
     color: '#FFFFFF',
     lineHeight: responsive(32.4),
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center' as any,
+    justifyContent: 'center' as any,
+    paddingVertical: responsive(40),
+  },
+  loadingText: {
+    marginTop: responsive(12),
+    fontSize: responsive(18),
+    color: '#99a1af',
+  },
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center' as any,
+    justifyContent: 'center' as any,
+    paddingVertical: responsive(40),
+  },
+  emptyText: {
+    fontSize: responsive(18),
+    color: '#99a1af',
   },
 });
 

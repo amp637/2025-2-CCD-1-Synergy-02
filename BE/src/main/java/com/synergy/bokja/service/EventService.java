@@ -46,11 +46,13 @@ public class EventService {
         // TTS 생성 (Base64 문자열 반환)
         String audioUrl = ttsService.generateTtsFromText(descriptionText);
 
-         return new AIScriptResponseDTO(
+        AIScriptResponseDTO dto = new AIScriptResponseDTO(
                 description.getUserMedicine().getUmno(),
                 descriptionText,
                 audioUrl
         );
+        
+        return dto;
     }
 
     @Transactional
@@ -272,7 +274,7 @@ public class EventService {
                 List<String> correctAnswers = options.stream()
                         .filter(QuizOptionEntity::getIsCorrect)
                         .map(QuizOptionEntity::getContent)
-                        .toList();
+                        .collect(Collectors.toList());
 
                 // 오답 리스트
                 List<String> wrongAnswers = options.stream()

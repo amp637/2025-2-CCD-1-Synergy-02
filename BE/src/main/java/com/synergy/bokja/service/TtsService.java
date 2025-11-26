@@ -22,10 +22,55 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class TtsService {
 
+    private final DescriptionRepository descriptionRepository;
     private final ObjectMapper objectMapper;
 
     @Value("${python.script.tts}")
     private String ttsScriptPath;
+
+    /**
+     * DB에서 description을 조회하여 TTS로 변환합니다.
+     * 
+     * @param umno 복약 정보 ID
+     * @param enno 이벤트 이름 ID (1: 알림, 3: AI전화)
+     * @return Base64 인코딩된 오디오 데이터
+     */
+    @Transactional(readOnly = true)
+    public byte[] generateTts(Long umno, Long enno) {
+        // 1. DB에서 description 조회
+        DescriptionEntity description = descriptionRepository
+                .findByUserMedicine_UmnoAndEventName_Enno(umno, enno);
+        
+        if (description == null) {
+            throw new IllegalArgumentException(
+                    String.format("해당 복약 정보(umno=%d)와 이벤트(enno=%d)에 대한 description을 찾을 수 없습니다.", umno, enno));
+        }
+
+        String text = description.getDescription();
+        if (text == null || text.trim().isEmpty()) {
+            throw new IllegalArgumentException("description이 비어있습니다.");
+        }
+
+        // 2. Python TTS 스크립트 호출
+        try {
+            String ttsResult = runPythonScript(ttsScriptPath, "tts", text);
+            
+            // 3. JSON 파싱
+            @SuppressWarnings("unchecked")
+            Map<String, Object> resultMap = objectMapper.readValue(ttsResult, Map.class);
+            String audioBase64 = (String) resultMap.get("audio_base64");
+            
+            if (audioBase64 == null) {
+                throw new RuntimeException("TTS 스크립트가 audio_base64를 반환하지 않았습니다.");
+            }
+            
+            // 4. Base64 디코딩하여 byte 배열로 반환
+            return Base64.getDecoder().decode(audioBase64);
+            
+        } catch (IOException | InterruptedException e) {
+            throw new RuntimeException("TTS 생성 중 오류 발생: " + e.getMessage(), e);
+        }
+    }
 
     /**
      * 텍스트를 직접 받아서 TTS로 변환하고 Base64 인코딩된 문자열을 반환합니다.
@@ -51,12 +96,12 @@ public class TtsService {
                 return null;
             }
             
-            // Base64 문자열 그대로 반환
+            // Base64 문자열 그대로 반환 (파일 저장 없음)
             return audioBase64;
             
+        } catch (IOException | InterruptedException e) {
+            return null;
         } catch (Exception e) {
-            System.err.println("[TTS Service Error] TTS 생성 중 오류 발생: " + e.getMessage());
-            e.printStackTrace();
             return null;
         }
     }

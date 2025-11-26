@@ -80,16 +80,28 @@ public class MedicationController {
      */
     @GetMapping("/users/me/medications/{umno}")
     public ResponseEntity<?> getMedicationDetail(
-            @RequestHeader("Authorization") String token,
+            @RequestHeader("Authorization") String authorization,
             @PathVariable("umno") Long umno
     ) {
-        String jwtToken = token.replace("Bearer ", "");
-        if (!jwtTokenProvider.validateToken(jwtToken)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body("Invalid or expired token");
+        final String token = authorization.replace("Bearer ", "");
+        if (!jwtTokenProvider.validateToken(token)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Invalid or expired token");
         }
 
-        Long uno = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || auth.getPrincipal() == null) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("FORBIDDEN");
+        }
+
+        Long uno;
+        try {
+            Object p = auth.getPrincipal();
+            if (p instanceof Long) uno = (Long) p;
+            else if (p instanceof String) uno = Long.parseLong((String) p);
+            else uno = Long.parseLong(auth.getName());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("FORBIDDEN");
+        }
 
         MedicationDetailResponseDTO result = medicationService.getMedicationDetail(uno, umno);
 
@@ -187,18 +199,23 @@ public class MedicationController {
      */
     @GetMapping("/users/me/medications/{umno}/times")
     public ResponseEntity<?> getMedicationTime(
-            @RequestHeader("Authorization") String token,
+            @RequestHeader("Authorization") String authorization,
             @PathVariable("umno") Long umno,
             @RequestParam("type") String type
     ) {
 
-        String jwtToken = token.replace("Bearer ", "");
-        if (!jwtTokenProvider.validateToken(jwtToken)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body("Invalid or expired token");
+        final String token = authorization.replace("Bearer ", "");
+        if (!jwtTokenProvider.validateToken(token)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Invalid or expired token");
         }
 
-        Long uno = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || auth.getPrincipal() == null) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("FORBIDDEN");
+        }
+        Long uno = (auth.getPrincipal() instanceof Long)
+                ? (Long) auth.getPrincipal()
+                : Long.parseLong(auth.getName());
 
         MedicationTimeItemDTO result = medicationService.getMedicationTime(uno, umno, type);
 
@@ -214,19 +231,24 @@ public class MedicationController {
      */
     @PatchMapping("/users/me/medications/{umno}/times/{atno}")
     public ResponseEntity<?> updateMedicationTime(
-            @RequestHeader("Authorization") String token,
+            @RequestHeader("Authorization") String authorization,
             @PathVariable("umno") Long umno,
             @PathVariable("atno") Long atno,
             @RequestBody MedicationTimeUpdateRequestDTO request
     ) {
 
-        String jwtToken = token.replace("Bearer ", "");
-        if (!jwtTokenProvider.validateToken(jwtToken)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body("Invalid or expired token");
+        final String token = authorization.replace("Bearer ", "");
+        if (!jwtTokenProvider.validateToken(token)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Invalid or expired token");
         }
 
-        Long uno = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || auth.getPrincipal() == null) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("FORBIDDEN");
+        }
+        Long uno = (auth.getPrincipal() instanceof Long)
+                ? (Long) auth.getPrincipal()
+                : Long.parseLong(auth.getName());
 
         MedicationTimeUpdateResponseDTO result =
                 medicationService.updateMedicationTime(uno, umno, atno, request);

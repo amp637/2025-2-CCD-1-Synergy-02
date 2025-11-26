@@ -571,6 +571,8 @@ public class MedicationService {
                 .distinct()
                 .collect(Collectors.toList());
 
+        // (이 퀴즈는 matchedMeds가 1개 이상이므로 항상 정답이 있음)
+
         // 2. quiz_table에 퀴즈 저장
         QuizEntity quiz = QuizEntity.builder()
                 .userMedicine(prescription) // umno FK
@@ -719,6 +721,8 @@ public class MedicationService {
         if (dinner)    newTypes.add("dinner");
         if (night)     newTypes.add("night");
 
+        // 여기까지 왔으면 newTypes.size() == existingTimes.size() == taken 이라는 전제가 성립
+
         // 7) 각 슬롯(atno)에 새 타입에 맞는 시간(tno) 매핑
         for (int i = 0; i < newTypes.size(); i++) {
             String type = newTypes.get(i);
@@ -777,6 +781,7 @@ public class MedicationService {
                     if (med == null) return null;
 
                     // 4-1. 현재 약(med)에 해당하는 주의사항만 필터링하여 MaterialDTO로 변환
+                    // (findCombinations 로직과 동일한 조건으로 매칭)
                     List<MaterialDTO> materials = relevantCombinations.stream()
                             .filter(comb -> isCombinationMatch(med, comb)) // 헬퍼 메서드로 분리
                             .map(CombinationEntity::getMaterial) // MaterialEntity 추출
@@ -841,6 +846,14 @@ public class MedicationService {
         return n.replaceAll("[^\\p{IsLetter}\\p{IsDigit}]", "");
     }
 
+    // 부분 일치 규칙: ingredient != null && (medName.contains(ingredient) || ingredient.contains(medName))
+    private boolean nameMatches(String medNameNorm, String ingredientRaw) {
+        if (ingredientRaw == null) return false;
+        String ing = normalizeKR(ingredientRaw);
+        if (ing.isEmpty() || medNameNorm.isEmpty()) return false;
+        return medNameNorm.contains(ing) || ing.contains(medNameNorm);
+    }
+
     /**
      * 5. 복약 정보 부분 수정(카테고리)
      */
@@ -899,12 +912,13 @@ public class MedicationService {
         // 3. 복약에 포함된 약 리스트 조회
         List<UserMedicineItemEntity> items = userMedicineItemRepository.findAllByUserMedicine_Umno(umno);
 
-        // 4. 처방된 약품들만 추출하여 관련 Combination만 Bulk 조회 (최적화)
+        // 4. [핵심 수정] 처방된 약품들만 추출하여 관련 Combination만 Bulk 조회 (최적화)
         List<MedicineEntity> allMedicines = items.stream()
                 .map(UserMedicineItemEntity::getMedicine)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
 
+        // (이전에 만든 findCombinations 메서드 재사용)
         List<CombinationEntity> relevantCombinations = findCombinations(allMedicines);
 
         // 5. DTO 매핑
@@ -913,7 +927,8 @@ public class MedicationService {
                     MedicineEntity med = item.getMedicine();
                     if (med == null) return null;
 
-                    // 현재 약(med)에 해당하는 주의사항만 필터링하여 MaterialDTO로 변환
+                    // [핵심 수정] 현재 약(med)에 해당하는 주의사항만 필터링하여 MaterialDTO로 변환
+                    // (이전에 만든 isCombinationMatch 헬퍼 메서드 재사용)
                     List<MaterialDTO> materials = relevantCombinations.stream()
                             .filter(c -> isCombinationMatch(med, c))
                             .map(CombinationEntity::getMaterial)
@@ -1101,7 +1116,7 @@ public class MedicationService {
         return userTimeRepository.findByUser_UnoAndTime_Type(uno, type)
                 .map(UserTimeEntity::getTime) // 유저 설정이 있으면 그 시간(tno) 사용
                 .orElseGet(() -> {
-                    // 2. (예외 처리) 유저 설정이 없으면 time_table에서 해당 타입의 첫 번째 시간을 기본값으로 사용
+                    // 2. (예외 처리) 유저 설정이 없으면 time_table에서 해당 타입의 첫 번째 시간(예: 08:00)을 기본값으로 사용
                     return timeRepository.findByType(type).stream().findFirst()
                             .orElseThrow(() -> new IllegalStateException("기본 시간 설정(time_table)이 비어있습니다. type=" + type));
                 });

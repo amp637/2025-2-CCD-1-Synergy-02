@@ -3,20 +3,28 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView } fr
 import * as SplashScreenExpo from 'expo-splash-screen';
 import { Asset } from 'expo-asset';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { getUserMedications } from './src/api/userApi';
 
 // Import all screens
 import SplashScreen from './src/screens/SplashScreen';
 import { IncomingCallScreen, ActiveCallScreen } from './src/screens';
 import IntakeAlarmQuizScreen from './src/screens/Intake/IntakeAlarmQuizScreen';
+import IntakeAlarmQuizThreeTimesWrongActiveScreen from './src/screens/Intake/IntakeAlarmQuizThreeTimesWrongActiveScreen';
 import IntakeRecordListScreen from './src/screens/Intake/IntakeRecordListScreen';
 import IntakeProgressRecordScreen from './src/screens/Intake/IntakeProgressRecordScreen';
 import IntakeRecordDetailsScreen from './src/screens/Intake/IntakeRecordDetailsScreen';
 import IntakeSideEffectCheck from './src/screens/Intake/IntakeSideEffectCheck';
 import PrescriptionCaptureScreen from './src/screens/Prescription/PrescriptionCaptureScreen';
 import PrescriptionProcessingScreen from './src/screens/Prescription/PrescriptionProcessingScreen';
+import MedicationEnvelopeCaptureScreen from './src/screens/Prescription/MedicationEnvelopeCaptureScreen';
+import MedicationEnvelopeProcessingScreen from './src/screens/Prescription/MedicationEnvelopeProcessingScreen';
 import PrescriptionIntakeTimeSelectScreen from './src/screens/Prescription/PrescriptionIntakeTimeSelectScreen';
 import PrescriptionAnalysisResultScreen from './src/screens/Prescription/PrescriptionAnalysisResultScreen';
 import PrescriptionDetailScreen from './src/screens/Prescription/PrescriptionDetailScreen';
+import PrescriptionMorningTimeEditScreen from './src/screens/Prescription/PrescriptionMorningTimeEditScreen';
+import PrescriptionLunchTimeEditScreen from './src/screens/Prescription/PrescriptionLunchTimeEditScreen';
+import PrescriptionEveningTimeEditScreen from './src/screens/Prescription/PrescriptionEveningTimeEditScreen';
+import PrescriptionBedTimeEditScreen from './src/screens/Prescription/PrescriptionBedTimeEditScreen';
 import HomeScreen from './src/screens/Home/HomeScreen';
 import HomeScreenEmpty from './src/screens/Home/HomeScreenEmpty';
 import HomeScreenList from './src/screens/Home/HomeScreenList';
@@ -92,12 +100,16 @@ type ScreenName =
   | 'IncomingCallScreen'
   | 'ActiveCallScreen'
   | 'IntakeAlarmQuizScreen'
+  | 'IntakeAlarmQuizThreeTimesWrongActive'
   | 'IntakeRecordListScreen'
   | 'IntakeProgressRecordScreen'
   | 'IntakeRecordDetailsScreen'
   | 'IntakeSideEffectCheck'
+  | 'IntakeSideEffectCheckDeactive'
   | 'PrescriptionCaptureScreen'
   | 'PrescriptionProcessingScreen'
+  | 'MedicationEnvelopeCaptureScreen'
+  | 'MedicationEnvelopeProcessingScreen'
   | 'PrescriptionIntakeTimeSelectScreen'
   | 'PrescriptionAnalysisResultScreen'
   | 'PrescriptionDetailScreen'
@@ -116,7 +128,11 @@ type ScreenName =
   | 'MorningTimeEditScreen'
   | 'LunchTimeEditScreen'
   | 'EveningTimeEditScreen'
-  | 'BedTimeEditScreen';
+  | 'BedTimeEditScreen'
+  | 'PrescriptionMorningTimeEditScreen'
+  | 'PrescriptionLunchTimeEditScreen'
+  | 'PrescriptionEveningTimeEditScreen'
+  | 'PrescriptionBedTimeEditScreen';
 
 // 처방전 데이터 타입
 interface Medication {
@@ -190,10 +206,15 @@ export default function App() {
   const [selectedTimePeriods, setSelectedTimePeriods] = useState<TimePeriod[]>([]); // 선택된 복약 시간대
   const [currentTimeEditIndex, setCurrentTimeEditIndex] = useState(0); // 현재 수정 중인 시간대 인덱스
   const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null); // 선택된 복약 기록 ID
+  const [selectedRecordRno, setSelectedRecordRno] = useState<number | null>(null); // 선택된 리포트 번호
   const [isEditingFromPrescription, setIsEditingFromPrescription] = useState(false); // 처방전 상세에서 시간 수정 중인지 여부
   const [quizWrongCount, setQuizWrongCount] = useState(0); // 퀴즈 오답 횟수 추적
   const [capturedImageUri, setCapturedImageUri] = useState<string | null>(null); // 촬영된 이미지 URI
   const [prescriptionUmno, setPrescriptionUmno] = useState<number | null>(null); // 처방전/약봉투 분석 결과 umno
+  const [prescriptionTaken, setPrescriptionTaken] = useState<number | undefined>(undefined); // 복약 횟수
+  const [prescriptionComb, setPrescriptionComb] = useState<string | undefined>(undefined); // 복약 시간대 조합
+  const [currentEventEno, setCurrentEventEno] = useState<number | null>(null); // 현재 이벤트 번호
+  const [currentEventUmno, setCurrentEventUmno] = useState<number | null>(null); // 현재 이벤트의 umno
 
   useEffect(() => {
     async function loadResourcesAndDataAsync() {
@@ -215,6 +236,32 @@ export default function App() {
     loadResourcesAndDataAsync();
   }, []);
 
+  // Home 화면으로 이동할 때 복약 목록 로드
+  useEffect(() => {
+    if (currentScreen === 'Home') {
+      const loadMedications = async () => {
+        try {
+          const response = await getUserMedications();
+          if (response.header?.resultCode === 1000 && response.body?.medications) {
+            const medicationList: Medication[] = response.body.medications.map((med) => ({
+              id: med.umno,
+              category: med.category,
+              hospital: med.hospital,
+              frequency: med.taken,
+              startDate: med.startAt,
+            }));
+            setMedications(medicationList);
+          }
+        } catch (error: any) {
+          console.error('복약 목록 로드 실패:', error);
+          // 에러 발생 시 빈 배열로 설정
+          setMedications([]);
+        }
+      };
+      loadMedications();
+    }
+  }, [currentScreen]);
+
   // 스플래시 화면 표시 후 2초 뒤에 OnboardingWelcomeScreen으로 전환
   useEffect(() => {
     if (appIsReady && currentScreen === 'SplashScreen') {
@@ -225,6 +272,15 @@ export default function App() {
       return () => clearTimeout(timer);
     }
   }, [appIsReady, currentScreen]);
+
+  // 퀴즈 화면으로 처음 들어올 때 currentEventEno 초기화 (3번 틀려서 전화 화면으로 갔다가 돌아온 경우가 아닐 때)
+  useEffect(() => {
+    if (currentScreen === 'IntakeAlarmQuizScreen' && quizWrongCount === 0) {
+      console.log('[App] 퀴즈 화면 진입 - currentEventEno 초기화');
+      setCurrentEventEno(null);
+      setCurrentEventUmno(null);
+    }
+  }, [currentScreen, quizWrongCount]);
 
   const onLayoutRootView = useCallback(async () => {
     if (appIsReady) {
@@ -258,6 +314,10 @@ export default function App() {
       { name: 'PrescriptionIntakeTimeSelectScreen', label: '⏰ 복약 시간 선택' },
       { name: 'PrescriptionAnalysisResultScreen', label: '📄 처방전 분석 결과' },
       { name: 'PrescriptionDetailScreen', label: '📄 처방전 상세' },
+      { name: 'PrescriptionMorningTimeEditScreen', label: '🌅 처방전 아침 시간 설정' },
+      { name: 'PrescriptionLunchTimeEditScreen', label: '☀️ 처방전 점심 시간 설정' },
+      { name: 'PrescriptionEveningTimeEditScreen', label: '🌆 처방전 저녁 시간 설정' },
+      { name: 'PrescriptionBedTimeEditScreen', label: '🌙 처방전 취침 시간 설정' },
     ]},
     { category: 'Home', items: [
       { name: 'Home', label: '🏠 홈 (통합)' },
@@ -292,39 +352,64 @@ export default function App() {
           setCurrentScreen('ActiveCallScreen');
         }}
         onDecline={() => {
-          // 빨간 버튼 클릭 → IntakeAlarmQuizScreen(3번 틀린 상태)로 돌아가기
-          setCurrentScreen('IntakeAlarmQuizScreen');
+          // 빨간 버튼 클릭 → IntakeAlarmQuizThreeTimesWrongActive로 이동
+          setCurrentScreen('IntakeAlarmQuizThreeTimesWrongActive');
         }}
       />;
-      case 'ActiveCallScreen': return <ActiveCallScreen />;
-      case 'IntakeAlarmQuizScreen': return <IntakeAlarmQuizScreen 
+      case 'ActiveCallScreen': return <ActiveCallScreen 
+        umno={currentEventUmno || undefined}
+        onCallEnd={() => {
+          // TTS 재생 완료 후 IntakeAlarmQuizThreeTimesWrongActive로 이동
+          setCurrentScreen('IntakeAlarmQuizThreeTimesWrongActive');
+        }}
+      />;
+      case 'IntakeAlarmQuizThreeTimesWrongActive': return <IntakeAlarmQuizThreeTimesWrongActiveScreen 
+        eno={currentEventEno || undefined}
+        umno={currentEventUmno || undefined}
         onMedicationTaken={() => {
-          // 약 먹었어요 → 오답 횟수 초기화 후 부작용 체크로 이동
-          setQuizWrongCount(0);
-          setCurrentScreen('IntakeSideEffectCheck');
+          // 약 먹었어요 버튼 클릭 → IntakeSideEffectCheckDeactive로 이동
+          setCurrentScreen('IntakeSideEffectCheckDeactive');
         }}
-        onThreeTimesWrong={() => {
-          // 3번 오답 → 오답 횟수 저장 후 IncomingCallScreen으로 이동
-          setQuizWrongCount(3);
-          setCurrentScreen('IncomingCallScreen');
-        }}
-        initialWrongCount={quizWrongCount}
       />;
+      case 'IntakeAlarmQuizScreen': return <IntakeAlarmQuizScreen 
+          eno={currentEventEno || undefined}
+          onMedicationTaken={() => {
+            // 약 먹었어요 → 오답 횟수 초기화 후 부작용 체크로 이동
+            setQuizWrongCount(0);
+            setCurrentScreen('IntakeSideEffectCheck');
+          }}
+          onThreeTimesWrong={(umno, eno) => {
+            // 3번 오답 → 오답 횟수 저장 후 IncomingCallScreen으로 이동
+            setQuizWrongCount(3);
+            setCurrentEventUmno(umno || null);
+            setCurrentEventEno(eno || null);
+            setCurrentScreen('IncomingCallScreen');
+          }}
+          initialWrongCount={quizWrongCount}
+        />;
       case 'IntakeRecordListScreen': return <IntakeRecordListScreen 
-        onRecordPress={(recordId) => {
-          console.log('선택된 기록:', recordId);
+        onRecordPress={(recordId, rno) => {
+          console.log('선택된 기록:', recordId, 'rno:', rno);
           setSelectedRecordId(recordId);
+          setSelectedRecordRno(rno);
           setCurrentScreen('IntakeProgressRecordScreen');
         }}
         onExit={() => setCurrentScreen('Home')}
       />;
       case 'IntakeProgressRecordScreen': return <IntakeProgressRecordScreen 
         recordData={sampleRecords.find(r => r.id === selectedRecordId)}
+        rno={selectedRecordRno || undefined}
         onExit={() => setCurrentScreen('IntakeRecordListScreen')}
         onDetailRecord={() => setCurrentScreen('IntakeRecordDetailsScreen')}
       />;
-      case 'IntakeRecordDetailsScreen': return <IntakeRecordDetailsScreen onExit={() => setCurrentScreen('IntakeProgressRecordScreen')} />;
+      case 'IntakeRecordDetailsScreen': return <IntakeRecordDetailsScreen 
+        rno={selectedRecordRno || undefined}
+        onExit={() => setCurrentScreen('IntakeProgressRecordScreen')} 
+      />;
       case 'IntakeSideEffectCheck': return <IntakeSideEffectCheck 
+        onComplete={() => setCurrentScreen('Home')}
+      />;
+      case 'IntakeSideEffectCheckDeactive': return <IntakeSideEffectCheck 
         onComplete={() => setCurrentScreen('Home')}
       />;
       case 'PrescriptionCaptureScreen': return <PrescriptionCaptureScreen 
@@ -337,18 +422,24 @@ export default function App() {
           setShowRetakeMessage(false);
           setCurrentScreen('PrescriptionProcessingScreen');
         }}
+        onBack={() => {
+          // 뒤로가기 버튼 클릭 시 홈으로 이동
+          setCurrentScreen('Home');
+        }}
       />;
       case 'PrescriptionProcessingScreen': return <PrescriptionProcessingScreen 
         mode={captureMode}
         imageUri={capturedImageUri || undefined}
-        onSuccess={(umno) => {
+        onSuccess={(umno, taken, comb) => {
           // OCR 성공
           setCapturedImageUri(null); // 이미지 URI 초기화
           
           if (umno) {
-            // umno가 있으면 분석 결과 화면으로 이동
+            // umno가 있으면 복약 시간 선택 화면으로 이동
             setPrescriptionUmno(umno);
-            setCurrentScreen('PrescriptionAnalysisResultScreen');
+            setPrescriptionTaken(taken);
+            setPrescriptionComb(comb);
+            setCurrentScreen('PrescriptionIntakeTimeSelectScreen');
           } else {
             // umno가 없으면 약 데이터 추가 후 IntakeTimeSelect로 이동 (레거시)
             setMedications([
@@ -377,8 +468,46 @@ export default function App() {
           setCurrentScreen('PrescriptionCaptureScreen');
         }}
       />;
+      case 'MedicationEnvelopeCaptureScreen': return <MedicationEnvelopeCaptureScreen 
+        showRetakeMessage={showRetakeMessage}
+        onCapture={(imageUri) => {
+          // 촬영 즉시 Processing 화면으로 이동 (이미지 URI 저장)
+          console.log('약봉투 촬영 완료, 이미지 URI:', imageUri);
+          setCapturedImageUri(imageUri);
+          setShowRetakeMessage(false);
+          setCurrentScreen('MedicationEnvelopeProcessingScreen');
+        }}
+        onBack={() => {
+          // 뒤로가기 버튼 클릭 시 홈으로 이동
+          setCurrentScreen('Home');
+        }}
+      />;
+      case 'MedicationEnvelopeProcessingScreen': return <MedicationEnvelopeProcessingScreen 
+        imageUri={capturedImageUri || undefined}
+        onSuccess={(umno, taken, comb) => {
+          // OCR 성공
+          setCapturedImageUri(null); // 이미지 URI 초기화
+          
+          if (umno) {
+            // umno가 있으면 복약 시간 선택 화면으로 이동
+            setPrescriptionUmno(umno);
+            setPrescriptionTaken(taken);
+            setPrescriptionComb(comb);
+            setCurrentScreen('PrescriptionIntakeTimeSelectScreen');
+          }
+        }}
+        onFailure={() => {
+          // OCR 실패 - Capture로 복귀 + 재촬영 메시지
+          setCapturedImageUri(null); // 이미지 URI 초기화
+          setShowRetakeMessage(true);
+          setCurrentScreen('MedicationEnvelopeCaptureScreen');
+        }}
+      />;
       case 'PrescriptionIntakeTimeSelectScreen': return <PrescriptionIntakeTimeSelectScreen 
         umno={prescriptionUmno || 0}
+        taken={prescriptionTaken}
+        comb={prescriptionComb}
+        source={captureMode === 'envelope' ? 'medicationEnvelope' : 'prescription'}
         onNext={(timePeriods) => {
           setSelectedTimePeriods(timePeriods);
           setCurrentScreen('PrescriptionAnalysisResultScreen');
@@ -389,22 +518,25 @@ export default function App() {
         source={captureMode === 'envelope' ? 'medicationEnvelope' : 'prescription'}
         onGoHome={() => {
           setPrescriptionUmno(null);
+          setPrescriptionTaken(undefined);
+          setPrescriptionComb(undefined);
           setCurrentScreen('Home');
         }} 
       />;
       case 'PrescriptionDetailScreen': return <PrescriptionDetailScreen 
         umno={prescriptionUmno || selectedMedicationId || 0}
         onGoHome={() => setCurrentScreen('Home')}
-        onEditTime={() => {
-          // 시간 수정 시작 - 처방전에서 선택한 시간대만
+        onEditTime={(timePeriods) => {
+          // 시간 수정 시작 - 처방전 약의 복약 시간 조합에 따라 시간대 설정
           setIsEditingFromPrescription(true);
+          setSelectedTimePeriods(timePeriods as TimePeriod[]);
           setCurrentTimeEditIndex(0);
-          if (selectedTimePeriods.length > 0) {
-            const firstPeriod = selectedTimePeriods[0];
-            if (firstPeriod === 'breakfast') setCurrentScreen('MorningTimeEditScreen');
-            else if (firstPeriod === 'lunch') setCurrentScreen('LunchTimeEditScreen');
-            else if (firstPeriod === 'dinner') setCurrentScreen('EveningTimeEditScreen');
-            else if (firstPeriod === 'bedtime') setCurrentScreen('BedTimeEditScreen');
+          if (timePeriods.length > 0) {
+            const firstPeriod = timePeriods[0];
+            if (firstPeriod === 'breakfast') setCurrentScreen('PrescriptionMorningTimeEditScreen');
+            else if (firstPeriod === 'lunch') setCurrentScreen('PrescriptionLunchTimeEditScreen');
+            else if (firstPeriod === 'dinner') setCurrentScreen('PrescriptionEveningTimeEditScreen');
+            else if (firstPeriod === 'bedtime') setCurrentScreen('PrescriptionBedTimeEditScreen');
           }
         }}
       />;
@@ -415,8 +547,7 @@ export default function App() {
           setCurrentScreen('PrescriptionCaptureScreen');
         }} 
         onPillEnvelopeRegister={() => {
-          setCaptureMode('envelope');
-          setCurrentScreen('PrescriptionCaptureScreen');
+          setCurrentScreen('MedicationEnvelopeCaptureScreen');
         }}
         onEditInfo={() => setCurrentScreen('EditInfoSelect')}
         onMedicationRecord={() => setCurrentScreen('IntakeRecordListScreen')}
@@ -432,12 +563,26 @@ export default function App() {
           setCurrentScreen('PrescriptionCaptureScreen');
         }} 
         onPillEnvelopeRegister={() => {
-          setCaptureMode('envelope');
-          setCurrentScreen('PrescriptionCaptureScreen');
+          setCurrentScreen('MedicationEnvelopeCaptureScreen');
         }}
         onEditInfo={() => setCurrentScreen('EditInfoSelect')}
       />;
-      case 'HomeScreenList': return <HomeScreenList />;
+      case 'HomeScreenList': return <HomeScreenList 
+        onPrescriptionRegister={() => {
+          setCaptureMode('prescription');
+          setCurrentScreen('PrescriptionCaptureScreen');
+        }}
+        onPillEnvelopeRegister={() => {
+          setCurrentScreen('MedicationEnvelopeCaptureScreen');
+        }}
+        onEditInfo={() => setCurrentScreen('EditInfoSelect')}
+        onMedicationRecord={() => setCurrentScreen('IntakeRecordListScreen')}
+        onMedicationPress={(id) => {
+          console.log('약 상세:', id);
+          setSelectedMedicationId(id);
+          setCurrentScreen('PrescriptionDetailScreen');
+        }}
+      />;
       case 'OnboardingWelcomeScreen': return <OnboardingWelcomeScreen onStartPress={() => setCurrentScreen('OnboardingSignUp')} />;
       case 'OnboardingSignUp': return <OnboardingSignUp onSignUpComplete={(isLogin) => {
         // isLogin이 true면 로그인 성공 → 홈으로 이동
@@ -504,6 +649,54 @@ export default function App() {
         // 마지막 시간대 - 어디서 시작했는지에 따라 복귀
         setCurrentScreen(isEditingFromPrescription ? 'PrescriptionDetailScreen' : 'EditInfoSelect');
       }} />;
+      case 'PrescriptionMorningTimeEditScreen': return <PrescriptionMorningTimeEditScreen 
+        umno={prescriptionUmno || selectedMedicationId || 0}
+        onNext={() => {
+          const nextIndex = currentTimeEditIndex + 1;
+          if (nextIndex < selectedTimePeriods.length) {
+            setCurrentTimeEditIndex(nextIndex);
+            const nextPeriod = selectedTimePeriods[nextIndex];
+            if (nextPeriod === 'lunch') setCurrentScreen('PrescriptionLunchTimeEditScreen');
+            else if (nextPeriod === 'dinner') setCurrentScreen('PrescriptionEveningTimeEditScreen');
+            else if (nextPeriod === 'bedtime') setCurrentScreen('PrescriptionBedTimeEditScreen');
+          } else {
+            setCurrentScreen('PrescriptionDetailScreen');
+          }
+        }} 
+      />;
+      case 'PrescriptionLunchTimeEditScreen': return <PrescriptionLunchTimeEditScreen 
+        umno={prescriptionUmno || selectedMedicationId || 0}
+        onNext={() => {
+          const nextIndex = currentTimeEditIndex + 1;
+          if (nextIndex < selectedTimePeriods.length) {
+            setCurrentTimeEditIndex(nextIndex);
+            const nextPeriod = selectedTimePeriods[nextIndex];
+            if (nextPeriod === 'dinner') setCurrentScreen('PrescriptionEveningTimeEditScreen');
+            else if (nextPeriod === 'bedtime') setCurrentScreen('PrescriptionBedTimeEditScreen');
+          } else {
+            setCurrentScreen('PrescriptionDetailScreen');
+          }
+        }} 
+      />;
+      case 'PrescriptionEveningTimeEditScreen': return <PrescriptionEveningTimeEditScreen 
+        umno={prescriptionUmno || selectedMedicationId || 0}
+        onNext={() => {
+          const nextIndex = currentTimeEditIndex + 1;
+          if (nextIndex < selectedTimePeriods.length) {
+            setCurrentTimeEditIndex(nextIndex);
+            const nextPeriod = selectedTimePeriods[nextIndex];
+            if (nextPeriod === 'bedtime') setCurrentScreen('PrescriptionBedTimeEditScreen');
+          } else {
+            setCurrentScreen('PrescriptionDetailScreen');
+          }
+        }} 
+      />;
+      case 'PrescriptionBedTimeEditScreen': return <PrescriptionBedTimeEditScreen 
+        umno={prescriptionUmno || selectedMedicationId || 0}
+        onComplete={() => {
+          setCurrentScreen('PrescriptionDetailScreen');
+        }} 
+      />;
       default: return null;
     }
   };

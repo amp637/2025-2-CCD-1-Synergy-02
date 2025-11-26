@@ -1,4 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../../navigation/Router';
 import {
   View,
   Text,
@@ -14,6 +17,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { StatusBar } from 'expo-status-bar';
 import responsive from '../../utils/responsive';
 import { updateMedicationCombination } from '../../api/medicationApi';
+import PinchZoomScrollView from '../../components/PinchZoomScrollView';
 
 type TimePeriod = 'breakfast' | 'lunch' | 'dinner' | 'bedtime';
 
@@ -32,11 +36,86 @@ const timeOptions: TimeOption[] = [
 
 interface PrescriptionIntakeTimeSelectScreenProps {
   umno: number; // 복약 정보 ID
+  taken?: number; // 복약 횟수 (1일 N회)
+  comb?: string; // 백엔드에서 받은 복약 시간대 조합 (예: "breakfast,lunch,dinner")
+  source?: 'prescription' | 'medicationEnvelope';
   onNext?: (timePeriods: TimePeriod[]) => void;
 }
 
-export default function PrescriptionIntakeTimeSelectScreen({ umno, onNext }: PrescriptionIntakeTimeSelectScreenProps) {
-  const [selectedTimePeriods, setSelectedTimePeriods] = useState<TimePeriod[]>(['breakfast']);
+type PrescriptionIntakeTimeSelectScreenRouteProp = RouteProp<RootStackParamList, 'PrescriptionIntakeTimeSelect'>;
+type PrescriptionIntakeTimeSelectScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'PrescriptionIntakeTimeSelect'>;
+
+export default function PrescriptionIntakeTimeSelectScreen({ 
+  umno: propUmno, 
+  taken: propTaken, 
+  comb: propComb, 
+  source: propSource = 'prescription',
+  onNext 
+}: PrescriptionIntakeTimeSelectScreenProps) {
+  // 네비게이션 사용 시도
+  let navigation: PrescriptionIntakeTimeSelectScreenNavigationProp | null = null;
+  let route: PrescriptionIntakeTimeSelectScreenRouteProp | null = null;
+  
+  try {
+    navigation = useNavigation<PrescriptionIntakeTimeSelectScreenNavigationProp>();
+    route = useRoute<PrescriptionIntakeTimeSelectScreenRouteProp>();
+  } catch (error: any) {
+    navigation = null;
+    route = null;
+  }
+  
+  // route.params에서 값 가져오기
+  const umno = route?.params?.umno || propUmno;
+  const taken = route?.params?.taken !== undefined ? route.params.taken : propTaken;
+  const comb = route?.params?.comb !== undefined ? route.params.comb : propComb;
+  const source = route?.params?.source || propSource;
+
+  // 초기 선택값 설정: 백엔드 comb가 있으면 사용, 없으면 taken 기반으로 설정
+  // API에서 데이터를 받아오지 않았을 때는 빈 배열 반환 (기본값 선택 방지)
+  const getInitialTimePeriods = (): TimePeriod[] => {
+    // comb가 존재하고 빈 문자열이 아닐 때만 사용
+    if (comb && comb.trim().length > 0) {
+      // 백엔드에서 받은 조합 사용 (night -> bedtime 변환)
+      const periods = comb.split(',').map(p => p.trim().toLowerCase());
+      return periods
+        .map(p => (p === 'night' ? 'bedtime' : p))
+        .filter((p): p is TimePeriod => ['breakfast', 'lunch', 'dinner', 'bedtime'].includes(p as TimePeriod));
+    }
+    
+    // taken이 명시적으로 존재할 때만 기반으로 기본값 설정 (0이 아닌 경우)
+    if (taken !== undefined && taken !== null && taken > 0) {
+      if (taken === 3) {
+        return ['breakfast', 'lunch', 'dinner'];
+      } else if (taken === 2) {
+        return ['breakfast', 'dinner'];
+      } else if (taken === 1) {
+        return ['breakfast'];
+      }
+    }
+    
+    // comb도 없고 taken도 없으면 빈 배열 반환 (API에서 데이터를 받아오지 않은 경우)
+    return [];
+  };
+
+  // 초기 상태는 항상 빈 배열로 시작 (API 데이터가 로드되면 useEffect에서 설정)
+  const [selectedTimePeriods, setSelectedTimePeriods] = useState<TimePeriod[]>([]);
+  
+  // comb나 taken이 변경되면 초기값 업데이트
+  // API에서 데이터를 받아온 경우에만 업데이트
+  useEffect(() => {
+    // comb가 존재하고 빈 문자열이 아니거나, taken이 명시적으로 존재하는 경우에만 설정
+    const hasComb = comb !== undefined && comb !== null && comb.trim().length > 0;
+    const hasTaken = taken !== undefined && taken !== null && taken > 0;
+    
+    if (hasComb || hasTaken) {
+      const initialPeriods = getInitialTimePeriods();
+      setSelectedTimePeriods(initialPeriods);
+    } else {
+      // API에서 데이터를 받아오지 않은 경우 빈 배열로 설정
+      setSelectedTimePeriods([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [comb, taken]);
   const [isLoading, setIsLoading] = useState(false);
   const { width } = useWindowDimensions();
   const isTablet = width > 600;
@@ -67,7 +146,15 @@ export default function PrescriptionIntakeTimeSelectScreen({ umno, onNext }: Pre
 
       const response = await updateMedicationCombination(umno, combination);
       if (response.header?.resultCode === 1000) {
-        onNext?.(selectedTimePeriods);
+        // 분석 결과 화면으로 이동
+        if (navigation) {
+          navigation.navigate('PrescriptionAnalysisResult', {
+            umno: umno,
+            source: source,
+          });
+        } else {
+          onNext?.(selectedTimePeriods);
+        }
       } else {
         throw new Error(response.header?.resultMsg || '복약 시간대 조합 수정에 실패했습니다.');
       }
@@ -93,7 +180,7 @@ export default function PrescriptionIntakeTimeSelectScreen({ umno, onNext }: Pre
         </View>
       </View>
 
-      <ScrollView
+      <PinchZoomScrollView
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + responsive(100) }]}
         showsVerticalScrollIndicator={false}
       >
@@ -135,8 +222,8 @@ export default function PrescriptionIntakeTimeSelectScreen({ umno, onNext }: Pre
               );
             })}
           </View>
-        </View>
-      </ScrollView>
+          </View>
+      </PinchZoomScrollView>
 
       {/* Next Button */}
       <View style={[styles.buttonContainer, { bottom: insets.bottom + responsive(36) }]}>

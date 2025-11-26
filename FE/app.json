@@ -22,7 +22,13 @@
         "backgroundColor": "#FFCC02"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.synergy_dgu.bokjaapp"
+      "package": "com.synergy_dgu.bokjaapp",
+      "permissions": [
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_MEDIA_IMAGES",
+        "CAMERA"
+      ]
     },
     "web": {
       "favicon": "./assets/images/main_icon/icon.png"

@@ -11,6 +11,13 @@ import java.util.List;
 public interface CombinationRepository extends JpaRepository<CombinationEntity, Long> {
 
     @Query("SELECT c FROM CombinationEntity c " +
+            "WHERE (:medName LIKE CONCAT('%', COALESCE(c.name, ''), '%')) " +
+            "   OR (:medName LIKE CONCAT('%', COALESCE(c.ingredient, ''), '%'))")
+    List<CombinationEntity> findRelatedCombinations(@Param("medName") String medName);
+
+    List<CombinationEntity> findAllByIngredientIsNotNull();
+
+    @Query("SELECT c FROM CombinationEntity c " +
             "WHERE c.name IN :names " +
             "OR c.ingredient IN :ingredients " +
             "OR c.classification IN :classifications")

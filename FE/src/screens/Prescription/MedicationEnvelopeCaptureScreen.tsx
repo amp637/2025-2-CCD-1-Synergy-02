@@ -17,26 +17,28 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import responsive from '../../utils/responsive';
 import { RootStackParamList } from '../../navigation/Router';
 
-type PrescriptionCaptureScreenRouteProp = RouteProp<RootStackParamList, 'PrescriptionCapture'>;
-type PrescriptionCaptureScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'PrescriptionCapture'>;
+type MedicationEnvelopeCaptureScreenRouteProp = RouteProp<RootStackParamList, 'MedicationEnvelopeCapture'>;
+type MedicationEnvelopeCaptureScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'MedicationEnvelopeCapture'>;
 
-interface PrescriptionCaptureScreenProps {
-  mode?: 'prescription' | 'envelope';
+interface MedicationEnvelopeCaptureScreenProps {
   onCapture?: (imageUri: string) => void; // 촬영 즉시 Processing으로 이동 (이미지 URI 전달)
   showRetakeMessage?: boolean; // 실패 시 다시 돌아왔을 때 메시지 표시
   onBack?: () => void; // 뒤로가기 버튼 클릭 시 호출 (App.tsx에서 홈으로 이동)
 }
 
-export default function PrescriptionCaptureScreen({ mode: propMode, onCapture, showRetakeMessage: initialShowRetake = false, onBack }: PrescriptionCaptureScreenProps) {
+export default function MedicationEnvelopeCaptureScreen({ onCapture, showRetakeMessage: initialShowRetake = false, onBack }: MedicationEnvelopeCaptureScreenProps) {
   // 네비게이션 사용 시도 (NavigationContainer 안에 있을 때만 사용 가능)
   // App.tsx에서 직접 사용되는 경우를 대비해 안전하게 처리
-  let navigation: PrescriptionCaptureScreenNavigationProp | null = null;
-  let route: PrescriptionCaptureScreenRouteProp | null = null;
-  
   // useNavigation과 useRoute는 Hook이므로 항상 호출해야 하지만, NavigationContainer 밖에서는 에러 발생 가능
+  // 따라서 optional하게 사용하도록 처리
+  let navigation: MedicationEnvelopeCaptureScreenNavigationProp | null = null;
+  let route: MedicationEnvelopeCaptureScreenRouteProp | null = null;
+  
+  // NavigationContainer가 있는지 확인
   try {
-    navigation = useNavigation<PrescriptionCaptureScreenNavigationProp>();
-    route = useRoute<PrescriptionCaptureScreenRouteProp>();
+    // NavigationContainer가 있는 경우에만 navigation 사용
+    navigation = useNavigation<MedicationEnvelopeCaptureScreenNavigationProp>();
+    route = useRoute<MedicationEnvelopeCaptureScreenRouteProp>();
   } catch (error: any) {
     // NavigationContainer 밖에서 렌더링되는 경우 (예: App.tsx에서 직접 사용)
     // 이 경우 onCapture 콜백을 통해 화면 전환 처리
@@ -44,8 +46,6 @@ export default function PrescriptionCaptureScreen({ mode: propMode, onCapture, s
     route = null;
   }
   
-  // route.params에서 mode를 가져오거나 propMode를 사용
-  const mode = route?.params?.mode || propMode || 'prescription';
   const [showRetakeMessage, setShowRetakeMessage] = useState(initialShowRetake);
   const [imageUri, setImageUri] = useState<string>('');
   
@@ -66,7 +66,7 @@ export default function PrescriptionCaptureScreen({ mode: propMode, onCapture, s
       handleCameraCapture();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status?.granted, imageUri]);
+  }, [status?.granted]);
 
   // 재촬영 메시지가 전달되면 3초간 표시
   useEffect(() => {
@@ -149,7 +149,7 @@ export default function PrescriptionCaptureScreen({ mode: propMode, onCapture, s
       const fileInfo = await FileSystem.getInfoAsync(finalImageUri);
 
       if (!fileInfo.exists || (fileInfo.exists && 'size' in fileInfo && fileInfo.size === 0)) {
-        console.error('[PrescriptionCaptureScreen] 파일이 존재하지 않거나 크기가 0입니다.');
+        console.error('[MedicationEnvelopeCaptureScreen] 파일이 존재하지 않거나 크기가 0입니다.');
         setShowRetakeMessage(true);
         setTimeout(() => {
           setShowRetakeMessage(false);
@@ -161,13 +161,12 @@ export default function PrescriptionCaptureScreen({ mode: propMode, onCapture, s
       if (onCapture) {
         onCapture(finalImageUri);
       } else if (navigation) {
-        navigation.navigate('PrescriptionProcessing', {
+        navigation.navigate('MedicationEnvelopeProcessing', {
           imageUri: finalImageUri,
-          mode: mode,
         });
       }
     } catch (error) {
-      console.error('카메라 촬영 오류:', error);
+      console.error('약봉투 카메라 촬영 오류:', error);
       setShowRetakeMessage(true);
       setTimeout(() => {
         setShowRetakeMessage(false);
@@ -195,36 +194,7 @@ export default function PrescriptionCaptureScreen({ mode: propMode, onCapture, s
     );
   }
 
-  // 이미지가 촬영된 경우에만 미리보기 표시
-  if (imageUri) {
-    return (
-      <View style={styles.container}>
-        <StatusBar style="dark" />
-        
-        {/* 안내 텍스트 */}
-        <View style={styles.guideTextContainer}>
-          <Text style={styles.guideText}>
-            {mode === 'envelope' ? '약봉투를 촬영해주세요' : '처방전을 촬영해주세요'}
-          </Text>
-        </View>
-
-        {/* 촬영한 이미지 미리보기 */}
-        <View style={styles.previewContainer}>
-          <Image source={{ uri: imageUri }} style={styles.previewImage as any} />
-          <TouchableOpacity style={styles.selectButton} onPress={handleCameraCapture}>
-            <Text style={styles.selectButtonText}>다시 촬영</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* 재촬영 메시지 */}
-        {showRetakeMessage && (
-          <View style={styles.retakeMessageContainer}>
-            <Text style={styles.retakeMessageText}>다시 촬영해주세요</Text>
-          </View>
-        )}
-      </View>
-    );
-  }
+  // 이미지가 촬영되면 즉시 Processing으로 이동하므로 미리보기 화면은 표시하지 않음
 
   // 이미지가 없으면 카메라 실행 중이므로 로딩 화면 표시 (또는 빈 화면)
   return (
@@ -308,83 +278,23 @@ const styles = StyleSheet.create({
     fontWeight: '600' as any,
     color: '#ffffff',
   },
-  guideFrame: {
-    width: responsive(360),
-    height: responsive(560),
-    borderRadius: responsive(10),
-    borderWidth: responsive(2),
-    borderColor: 'rgba(255, 255, 255, 0.6)',
-    position: 'relative',
-    marginBottom: responsive(40),
-  },
-  corner: {
-    position: 'absolute',
-    width: responsive(32),
-    height: responsive(32),
-    borderColor: '#ffffff',
-    borderWidth: responsive(2),
-  },
-  topLeft: {
-    top: 0,
-    left: 0,
-    borderRightWidth: 0,
-    borderBottomWidth: 0,
-    borderTopLeftRadius: responsive(10),
-  },
-  topRight: {
-    top: 0,
-    right: 0,
-    borderLeftWidth: 0,
-    borderBottomWidth: 0,
-    borderTopRightRadius: responsive(10),
-  },
-  bottomLeft: {
-    bottom: 0,
-    left: 0,
-    borderRightWidth: 0,
-    borderTopWidth: 0,
-    borderBottomLeftRadius: responsive(10),
-  },
-  bottomRight: {
-    bottom: 0,
-    right: 0,
-    borderLeftWidth: 0,
-    borderTopWidth: 0,
-    borderBottomRightRadius: responsive(10),
-  },
   retakeMessageContainer: {
     position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: [{ translateX: responsive(-130) }, { translateY: responsive(-69) }],
+    top: responsive(100),
     width: responsive(260),
-    height: responsive(138),
-    backgroundColor: '#d9d9d9',
-    borderRadius: responsive(20),
+    height: responsive(60),
+    backgroundColor: '#ff6b6b',
+    borderRadius: responsive(10),
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
   },
   retakeMessageText: {
-    fontSize: responsive(27),
+    fontSize: responsive(16),
     fontWeight: '700' as '700',
-    color: '#000000',
+    color: '#ffffff',
     textAlign: 'center',
   },
-  captureButton: {
-    width: responsive(80),
-    height: responsive(80),
-    borderRadius: responsive(40),
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    borderWidth: responsive(4),
-    borderColor: '#ffffff',
-    justifyContent: 'center' as any,
-    alignItems: 'center' as any,
-  },
-  captureButtonInner: {
-    width: responsive(60),
-    height: responsive(60),
-    borderRadius: responsive(30),
-    backgroundColor: '#ffffff',
-  },
 });
+
+
 
