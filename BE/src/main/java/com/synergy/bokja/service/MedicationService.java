@@ -1165,6 +1165,5 @@ public class MedicationService {
                 .orElseThrow(() -> new RuntimeException("Cycle not found"));
 
         cycle.setCurCycle(cycle.getCurCycle() + newEvents.size());
-        cycle.setTotalCycle(cycle.getTotalCycle() + newEvents.size());
     }
 }

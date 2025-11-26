@@ -126,10 +126,12 @@ public class EventService {
                 .filter(med -> {
                     CycleEntity cycle = cycleMap.get(med.getUmno());
                     if (cycle == null) return false;
-                    LocalDate start = cycle.getStartDate();
-                    LocalDate end = cycle.getEndDate();
-                    return (today.isEqual(start) || today.isAfter(start)) &&
-                            (today.isEqual(end) || today.isBefore(end));
+
+                    // 아직 시작일 전이면 제외
+                    if (today.isBefore(cycle.getStartDate())) return false;
+
+                    // 횟수가 남아있으면 포함
+                    return cycle.getCurCycle() < cycle.getTotalCycle();
                 })
                 .toList();
 
@@ -173,8 +175,13 @@ public class EventService {
 
         for (AlarmTimeEntity alarm : alarmTimes) {
             Long currentUmno = alarm.getUserMedicine().getUmno();
+            CycleEntity cycle = cycleMap.get(currentUmno);
 
-            // 퀴즈 랜덤 선택
+            // 이미 총 횟수를 다 채웠다면 이벤트 생성 스킵
+            if (cycle.getCurCycle() >= cycle.getTotalCycle()) {
+                continue;
+            }
+
             QuizEntity selectedQuiz = null;
             List<QuizEntity> quizzesForThisUmno = quizMap.get(currentUmno);
             if (quizzesForThisUmno != null && !quizzesForThisUmno.isEmpty()) {
@@ -192,18 +199,20 @@ public class EventService {
                     .build();
 
             newEvents.add(newEvent);
+            cycle.setCurCycle(cycle.getCurCycle() + 1);
 
+            // 카운트 맵 업데이트
             eventCountPerUmno.put(currentUmno, eventCountPerUmno.getOrDefault(currentUmno, 0) + 1);
         }
 
         for (Map.Entry<Long, Integer> entry : eventCountPerUmno.entrySet()) {
             Long umno = entry.getKey();
-            Integer newEventCount = entry.getValue(); // 오늘 생성된 이벤트 갯수
-
             CycleEntity cycleToUpdate = cycleMap.get(umno); // (N+1 방지) 이미 로드한 객체 재사용
+
             if (cycleToUpdate != null) {
-                int currentCycle = (cycleToUpdate.getCurCycle() != null) ? cycleToUpdate.getCurCycle() : 0;
-                cycleToUpdate.setCurCycle(currentCycle + newEventCount);
+                if (today.isAfter(cycleToUpdate.getEndDate())) {
+                    cycleToUpdate.setEndDate(today);
+                }
             }
         }
 
