@@ -157,7 +157,11 @@ public class EventService {
 
             // 동적 설명 생성
             String category = med.getCategory();
-            String dynamicDescription = String.format("%s 먹을 시간이에요! 아래 퀴즈를 풀어주세요", category);
+            String hospital = med.getHospital();
+            String name = user.getName();
+
+            // {name}님 {hospital}에서 받은 {category} 먹을 시간이에요! 아래 퀴즈를 풀어주세요
+            String dynamicDescription = String.format("%s님 %s에서 받은 %s 먹을 시간이에요! 아래 퀴즈를 풀어주세요", name, hospital, category);
 
             DescriptionEntity newDescription = DescriptionEntity.builder()
                     .userMedicine(med)
@@ -249,7 +253,7 @@ public class EventService {
      * [공통 헬퍼] 1. EventEntity 목록을 받아서 최종 DTO(FCM/API 응답용)로 만듦
      */
     private EventItemResponseDTO buildEventResponseDTO(Long uno, List<EventEntity> events) {
-        // (N+1 방지) 퀴즈 옵션 미리 조회 (기존과 동일)
+        // (N+1 방지) 퀴즈 옵션 미리 조회
         List<Long> qnoList = events.stream()
                 .map(EventEntity::getQuiz)
                 .filter(Objects::nonNull)
@@ -300,11 +304,26 @@ public class EventService {
                 }
             }
 
+            Long umno = event.getUserMedicine().getUmno();
+            DescriptionEntity description = descriptionRepository.findTop1ByUserMedicine_UmnoAndEventName_Enno(umno, 1l); // alarm -> enno : 1
+
+            if (description == null) {
+                throw new IllegalArgumentException("해당 복약 정보(umno=" + umno + ")와 이벤트(enno=1)에 대한 description을 찾을 수 없습니다.");
+            }
+
+            String descriptionText = description.getDescription();
+            if (descriptionText == null || descriptionText.trim().isEmpty()) {
+                throw new IllegalArgumentException("description이 비어있습니다.");
+            }
+
+            // TTS 생성 (Base64 문자열 반환)
+            String audioUrl = ttsService.generateTtsFromText(descriptionText);
+
             return new EventItemDTO(
                     event.getEno(), med.getUmno(), event.getEventName().getName(), time,
                     med.getHospital(), med.getCategory(),
                     (event.getDescription() != null) ? event.getDescription().getDescription() : "",
-                    question, candidate
+                    audioUrl, question, candidate
             );
         }).collect(Collectors.toList());
 

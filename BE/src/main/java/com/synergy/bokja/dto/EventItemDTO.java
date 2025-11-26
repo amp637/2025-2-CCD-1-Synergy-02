@@ -1,6 +1,5 @@
 package com.synergy.bokja.dto;
 
-import com.synergy.bokja.entity.QuizOptionEntity;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
@@ -17,6 +16,7 @@ public class EventItemDTO {
     private String hospital;
     private String category;
     private String description;
+    private String audioUrl;
     private String question;
     private CandidateDTO candidate;
 }
