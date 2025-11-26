@@ -23,6 +23,7 @@ import java.nio.file.Paths;
 import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -49,6 +50,7 @@ public class MedicationService {
     private final UserTimeRepository userTimeRepository;
     private final TimeRepository timeRepository;
     private final ReportRepository reportRepository;
+    private final EventRepository eventRepository;
 
     private final ObjectMapper objectMapper;
 
@@ -192,6 +194,8 @@ public class MedicationService {
             descriptionRepository.save(aiDescription);
 
             createInitialAlarmTimes(user, savedPrescription, alarmComb);
+
+            generateEventsForToday(user, savedPrescription, alarmComb);
 
             return new MedicationCreateResponseDTO(umno);
 
@@ -1105,5 +1109,62 @@ public class MedicationService {
                     return timeRepository.findByType(type).stream().findFirst()
                             .orElseThrow(() -> new IllegalStateException("기본 시간 설정(time_table)이 비어있습니다. type=" + type));
                 });
+    }
+
+    private void generateEventsForToday(UserEntity user, UserMedicineEntity prescription, AlarmCombEntity alarmComb) {
+        LocalTime now = LocalTime.now();
+
+        // 방금 생성된 알람 시간 조회
+        List<AlarmTimeEntity> alarmTimes = alarmTimeRepository.findAllByUserMedicine_UmnoIn(
+                Collections.singletonList(prescription.getUmno())
+        );
+
+        // 현재 시간보다 '이후'인 알람만 필터링
+        List<AlarmTimeEntity> upcomingAlarms = alarmTimes.stream()
+                .filter(alarm -> alarm.getTime().getTime().isAfter(now))
+                .collect(Collectors.toList());
+
+        if (upcomingAlarms.isEmpty()) {
+            return; // 오늘 남은 알람이 없으면 종료
+        }
+
+        // 이벤트 생성
+        EventNameEntity alarmEventName = eventNameRepository.findById(1L)
+                .orElseThrow(() -> new RuntimeException("enno=1인 '알림' 이벤트명을 찾을 수 없습니다."));
+
+        DescriptionEntity savedDescription = descriptionRepository.findByUserMedicine_UmnoAndEventName_Enno(prescription.getUmno(), 1L);
+
+        List<QuizEntity> quizzes = quizRepository.findAllByUserMedicine_UmnoIn(Collections.singletonList(prescription.getUmno()));
+        Random random = new Random();
+
+        List<EventEntity> newEvents = new ArrayList<>();
+
+        for (AlarmTimeEntity alarm : upcomingAlarms) {
+            // 퀴즈 랜덤 선택
+            QuizEntity selectedQuiz = null;
+            if (!quizzes.isEmpty()) {
+                selectedQuiz = quizzes.get(random.nextInt(quizzes.size()));
+            }
+
+            EventEntity newEvent = EventEntity.builder()
+                    .userMedicine(prescription)
+                    .alarmTime(alarm)
+                    .eventName(alarmEventName)
+                    .description(savedDescription)
+                    .quiz(selectedQuiz)
+                    .status(EventStatus.발행)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+
+            newEvents.add(newEvent);
+        }
+
+        eventRepository.saveAll(newEvents);
+
+        CycleEntity cycle = cycleRepository.findByUserMedicine_Umno(prescription.getUmno())
+                .orElseThrow(() -> new RuntimeException("Cycle not found"));
+
+        cycle.setCurCycle(cycle.getCurCycle() + newEvents.size());
+        cycle.setTotalCycle(cycle.getTotalCycle() + newEvents.size());
     }
 }
