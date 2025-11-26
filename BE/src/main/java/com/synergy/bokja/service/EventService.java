@@ -143,6 +143,11 @@ public class EventService {
 
         List<AlarmTimeEntity> alarmTimes = alarmTimeRepository.findAllByUserMedicine_UmnoIn(activeUmnoList);
 
+        Map<Long, DescriptionEntity> descriptionMap =
+                descriptionRepository.findAllByUserMedicine_UmnoInAndEventName_Enno(activeUmnoList, 1L)
+                        .stream()
+                        .collect(Collectors.toMap(d -> d.getUserMedicine().getUmno(), d -> d, (a, b) -> a));
+
         EventNameEntity alarmEventName = eventNameRepository.findById(1L)
                 .orElseThrow(() -> new RuntimeException("enno=1인 '알림' 이벤트명을 찾을 수 없습니다.")); // (배치 실패 처리)
 
@@ -151,29 +156,6 @@ public class EventService {
                 .collect(Collectors.groupingBy(q -> q.getUserMedicine().getUmno()));
 
         Random random = new Random();
-        Map<Long, DescriptionEntity> descriptionMap = new HashMap<>();
-
-        for (UserMedicineEntity med : activeMedsToday) {
-
-            // 동적 설명 생성
-            String category = med.getCategory();
-            String hospital = med.getHospital();
-            String name = user.getName();
-
-            // {name}님 {hospital}에서 받은 {category} 먹을 시간이에요! 아래 퀴즈를 풀어주세요
-            String dynamicDescription = String.format("%s님 %s에서 받은 %s 먹을 시간이에요! 아래 퀴즈를 풀어주세요", name, hospital, category);
-
-            DescriptionEntity newDescription = DescriptionEntity.builder()
-                    .userMedicine(med)
-                    .eventName(alarmEventName)
-                    .description(dynamicDescription)
-                    .createdAt(LocalDateTime.now())
-                    .build();
-            DescriptionEntity savedDescription = descriptionRepository.save(newDescription);
-
-            // Map에 저장 (Key: umno, Value: 저장된 엔티티)
-            descriptionMap.put(med.getUmno(), savedDescription);
-        }
 
         Map<Long, Integer> eventCountPerUmno = new HashMap<>();
 
