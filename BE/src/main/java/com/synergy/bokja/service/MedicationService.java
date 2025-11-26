@@ -193,6 +193,20 @@ public class MedicationService {
                     .build();
             descriptionRepository.save(aiDescription);
 
+            EventNameEntity alarmEventName = eventNameRepository.findById(1L)
+                    .orElseThrow(() -> new IllegalArgumentException("enno=1인 EventName을 찾을 수 없습니다."));
+
+            String notificationMsg = String.format("%s님 %s에서 받은 %s 먹을 시간이에요! 아래 퀴즈를 풀어주세요",
+                    user.getName(), parsedData.getHospitalName(), category);
+
+            DescriptionEntity notificationDescription = DescriptionEntity.builder()
+                    .userMedicine(savedPrescription)
+                    .eventName(alarmEventName) // enno=1
+                    .description(notificationMsg)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+            descriptionRepository.save(notificationDescription);
+
             createInitialAlarmTimes(user, savedPrescription, alarmComb);
 
             generateEventsForToday(user, savedPrescription, alarmComb);
