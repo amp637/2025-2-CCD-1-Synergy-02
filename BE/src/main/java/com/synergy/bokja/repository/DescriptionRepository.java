@@ -9,7 +9,7 @@ public interface DescriptionRepository extends JpaRepository<DescriptionEntity, 
 
     DescriptionEntity findByUserMedicine_UmnoAndEventName_Enno(Long umno, Long Enno);
 
-    List<DescriptionEntity> findAllByEventName_Enno(Long enno);
+    DescriptionEntity findTop1ByUserMedicine_UmnoAndEventName_Enno(Long umno, Long enno);
 
     List<DescriptionEntity> findAllByUserMedicine_UmnoInAndEventName_Enno(List<Long> umnoList, Long enno);
 }

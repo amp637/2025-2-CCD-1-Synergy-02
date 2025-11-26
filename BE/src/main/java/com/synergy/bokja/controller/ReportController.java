@@ -46,7 +46,6 @@ public class ReportController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Invalid or expired token");
         }
 
-        Long uno = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         ReportDetailResponseDTO result = reportService.getReportDetail(rno);
         BaseResponse<ReportDetailResponseDTO> response =
                 new BaseResponse<>(1000, "리포트 상세 조회에 성공하였습니다.", result);
@@ -61,7 +60,6 @@ public class ReportController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Invalid or expired token");
         }
 
-        Long uno = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         ReportSummaryResponseDTO result = reportService.getReportSummary(rno);
         BaseResponse<ReportSummaryResponseDTO> response =
                 new BaseResponse<>(1000, "리포트 요약 조회에 성공하였습니다.", result);

@@ -46,17 +46,6 @@ public class ReportService {
      * 목록 조회는 getUserReports(umno) 내부에서 uno 기준 전체를 조회함.
      */
 
-    /** 날짜 범위 리스트 생성 (문자열) */
-    private List<String> daysBetween(String start, String end) {
-        LocalDate s = LocalDate.parse(start);
-        LocalDate e = LocalDate.parse(end);
-        List<String> days = new ArrayList<>();
-        for (LocalDate d = s; !d.isAfter(e); d = d.plusDays(1)) {
-            days.add(d.toString());
-        }
-        return days;
-    }
-
     /** 현재 인증된 사용자 uno 조회 (요약/상세 조회에서 권한 검증용) */
     private Long getCurrentUserUno() {
         Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
