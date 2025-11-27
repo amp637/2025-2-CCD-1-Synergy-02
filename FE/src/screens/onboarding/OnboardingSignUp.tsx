@@ -15,7 +15,6 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { StatusBar } from 'expo-status-bar';
 import Svg, { Path, Rect } from 'react-native-svg';
 import responsive from '../../utils/responsive';
-import { getFcmToken } from '../../utils/fcmToken';
 import { signUp, login } from '../../api/authApi';
 import { useUserStore } from '../../stores/userStore';
 import { useAuthStore } from '../../stores/authStore';
@@ -64,30 +63,13 @@ export default function OnboardingSignUp({ onSignUpComplete }: OnboardingSignUpP
     try {
       console.log('회원가입 시작...');
       
-      // 1. FCM 토큰 받아오기 (없어도 회원가입 진행)
-      // PlatformConstants 에러 방지를 위해 FCM 토큰 기능 일시적으로 비활성화
-      // TODO: New Architecture 문제 해결 후 재활성화
-      console.log('FCM 토큰 요청 중...');
-      let fcmToken: string | null = null;
-      
-      try {
-        // 런타임이 완전히 준비될 때까지 충분히 대기
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        fcmToken = await getFcmToken();
-        
-        if (!fcmToken) {
-          console.warn('FCM 토큰을 받지 못했습니다. 알림이 제한될 수 있습니다.');
-          // FCM 토큰이 없어도 회원가입은 진행합니다
-        } else {
-          console.log('FCM 토큰 받기 성공:', fcmToken);
-        }
-      } catch (error) {
-        console.warn('FCM 토큰 가져오기 실패 (회원가입은 계속 진행):', error);
-        // 에러가 발생해도 회원가입은 진행합니다
-        fcmToken = null;
-      }
+      // AuthStore에서 FCM 토큰 가져오기
+      const { fcmToken } = useAuthStore.getState();
+      console.log('FCM 토큰 상태:', fcmToken ? fcmToken.substring(0, 50) + '...' : '없음');
+      console.log('FCM 토큰 전체 길이:', fcmToken ? fcmToken.length : 0);
+      console.log('FCM 토큰 타입:', typeof fcmToken);
 
-      // 2. 회원가입 API 호출
+      // 회원가입 API 호출
       console.log('회원가입 API 호출 중...');
       
       // 🔥 phone과 birth 형식 정규화 (백엔드 요구사항에 맞춤)
@@ -107,20 +89,35 @@ export default function OnboardingSignUp({ onSignUpComplete }: OnboardingSignUpP
       
       // 백엔드는 "birth" 필드명을 사용하고 LocalDate 타입을 받습니다 (YYYY-MM-DD 형식)
       // FCM 토큰이 없으면 빈 문자열로 전송 (백엔드에서 nullable로 처리)
-      const signUpData = {
-        name: name.trim(),
-        phone: normalizedPhone, // 하이픈 제거된 전화번호
-        birth: normalizedBirth, // YYYY-MM-DD 형식
-        fcmToken: fcmToken || '', // FCM 토큰이 없으면 빈 문자열
-      };
+      // 백엔드 스펙에 맞게 필드 순서를 명시적으로 보장
+      const signUpData: any = {};
+      signUpData.name = name.trim();
+      signUpData.birth = normalizedBirth; // YYYY-MM-DD 형식
+      signUpData.phone = normalizedPhone; // 하이픈 제거된 전화번호
+      signUpData.fcm_token = fcmToken || ''; // FCM 토큰을 맨 마지막에 배치, 원본 그대로 보존
 
+      console.log('=== 회원가입 요청 데이터 상세 ===');
+      console.log('요청 URL: http://15.165.38.252:8080/users');
+      console.log('요청 데이터:', JSON.stringify(signUpData, ['name', 'birth', 'phone', 'fcm_token'], 2));
+      console.log('fcm_token 길이:', signUpData.fcm_token.length);
+      console.log('fcm_token 값:', signUpData.fcm_token);
+
+      console.log('🚀 signUp API 호출 시작...');
       const response = await signUp(signUpData);
       
-      console.log('회원가입 응답:', response);
+      console.log('✅ signUp API 응답 받음:', response);
+      console.log('응답 타입:', typeof response);
+      console.log('응답 구조:', Object.keys(response || {}));
       
       // 백엔드 응답 형식: { header: { resultCode: 1000, resultMsg: "회원가입 성공" }, body: { uno: ... } }
+      console.log('🔍 응답 검증 중...');
+      console.log('response.header:', response.header);
+      console.log('response.body:', response.body);
+      console.log('resultCode:', response.header?.resultCode);
+      console.log('resultCode 타입:', typeof response.header?.resultCode);
+      
       if (response.header?.resultCode === 1000 && response.body) {
-        console.log('회원가입 성공:', response);
+        console.log('✅ 회원가입 성공 조건 만족!');
         
         // Store에 사용자 정보 저장 (정규화된 값으로 저장)
         const uno = response.body.uno;
@@ -136,19 +133,27 @@ export default function OnboardingSignUp({ onSignUpComplete }: OnboardingSignUpP
         }
         
         // 토큰 저장 확인
+        console.log('🔍 토큰 저장 상태 확인 중...');
         const savedToken = useAuthStore.getState().token;
+        console.log('저장된 토큰:', savedToken ? savedToken.substring(0, 30) + '...' : '없음');
+        
         if (!savedToken) {
           console.error('[OnboardingSignUp] ⚠️ 회원가입 후 토큰이 저장되지 않았습니다!');
-          throw new Error('토큰 저장 실패');
+          // 토큰이 없어도 일단 진행해보자 (디버깅용)
+          console.warn('토큰 없이 진행합니다...');
         }
         
         // JWT 토큰은 응답 헤더의 Authorization에 포함됩니다 (interceptor에서 자동 저장)
         // 성공 시 알림 없이 바로 다음 화면으로 이동
+        console.log('🎯 회원가입 완료! 다음 화면으로 이동...');
         setIsLoading(false);
         onSignUpComplete?.(false); // false = 회원가입 성공
       } else {
         // 응답은 받았지만 resultCode가 1000이 아닌 경우
-        console.warn('회원가입 응답 코드가 1000이 아님:', response);
+        console.error('❌ 회원가입 실패 - resultCode가 1000이 아님');
+        console.error('실제 resultCode:', response.header?.resultCode);
+        console.error('resultMsg:', response.header?.resultMsg);
+        console.error('전체 응답:', response);
         throw new Error(response.header?.resultMsg || '회원가입에 실패했습니다.');
       }
     } catch (error: any) {

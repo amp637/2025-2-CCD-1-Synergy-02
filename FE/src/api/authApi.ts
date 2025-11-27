@@ -6,7 +6,7 @@ export interface SignUpRequest {
   name: string;
   phone: string;
   birth: string; // 백엔드는 "birth" 필드명 사용, LocalDate 타입 (YYYY-MM-DD 형식)
-  fcmToken: string;
+  fcm_token?: string; // 백엔드 스펙에 맞게 fcm_token으로 변경
 }
 
 // 회원가입 응답 데이터 타입
@@ -32,8 +32,18 @@ export const signUp = async (signUpData: SignUpRequest): Promise<BaseResponse<Us
     console.log('회원가입 데이터:', signUpData);
     console.log('API Base URL:', API_BASE_URL);
     
+    // 🔥 필드 순서를 보장하기 위해 수동으로 JSON 문자열 생성
+    const orderedJsonString = `{
+  "name": "${signUpData.name}",
+  "birth": "${signUpData.birth}",
+  "phone": "${signUpData.phone}",
+  "fcm_token": "${signUpData.fcm_token}"
+}`;
+    
+    console.log('순서가 보장된 JSON:', orderedJsonString);
+    
     // 백엔드 엔드포인트: POST /users
-    const response = await api.post<BaseResponse<UsersResponseDTO>>('/users', signUpData);
+    const response = await api.post<BaseResponse<UsersResponseDTO>>('/users', JSON.parse(orderedJsonString));
     
     console.log('회원가입 응답 상태:', response.status);
     console.log('회원가입 응답 헤더:', response.headers);
