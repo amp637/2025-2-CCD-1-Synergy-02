@@ -4,9 +4,9 @@ import { BaseResponse } from './types';
 // 회원가입 요청 타입 (백엔드 UserSignupRequestDTO와 일치)
 export interface SignUpRequest {
   name: string;
-  phone: string;
   birth: string; // 백엔드는 "birth" 필드명 사용, LocalDate 타입 (YYYY-MM-DD 형식)
-  fcm_token?: string; // 백엔드 스펙에 맞게 fcm_token으로 변경
+  phone: string; // 백엔드 DTO: phone
+  fcmToken: string; // 백엔드 DTO: fcmToken
 }
 
 // 회원가입 응답 데이터 타입
@@ -27,53 +27,53 @@ export interface LoginRequest {
  * @returns 회원가입 응답 (백엔드 BaseResponse 형식)
  */
 export const signUp = async (signUpData: SignUpRequest): Promise<BaseResponse<UsersResponseDTO>> => {
+  console.log('\n🚀 === signUp 함수 시작 ===');
+  console.log('📍 함수 호출 시간:', new Date().toISOString());
+  console.log('📍 요청할 URL: POST', API_BASE_URL + '/users');
+  console.log('📍 요청 데이터:', JSON.stringify(signUpData, null, 2));
+  console.log('📍 FCM 토큰 길이:', signUpData.fcmToken?.length || 0);
+  
   try {
-    console.log('=== 회원가입 API 호출 시작 ===');
-    console.log('회원가입 데이터:', signUpData);
-    console.log('API Base URL:', API_BASE_URL);
-    
-    // 🔥 필드 순서를 보장하기 위해 수동으로 JSON 문자열 생성
-    const orderedJsonString = `{
-  "name": "${signUpData.name}",
-  "birth": "${signUpData.birth}",
-  "phone": "${signUpData.phone}",
-  "fcm_token": "${signUpData.fcm_token}"
-}`;
-    
-    console.log('순서가 보장된 JSON:', orderedJsonString);
-    
     // 백엔드 엔드포인트: POST /users
-    const response = await api.post<BaseResponse<UsersResponseDTO>>('/users', JSON.parse(orderedJsonString));
+    // axios interceptor에서 자세한 로깅을 하므로 여기서는 간단하게
+    console.log('📍 axios.post 호출 시작...');
     
-    console.log('회원가입 응답 상태:', response.status);
-    console.log('회원가입 응답 헤더:', response.headers);
-    console.log('회원가입 응답 데이터:', response.data);
+    const response = await api.post<BaseResponse<UsersResponseDTO>>('/users', signUpData);
     
-    // 응답 헤더에서 토큰 확인 (axios는 헤더를 소문자로 변환)
-    const authHeader = response.headers['authorization'] || response.headers.authorization;
-    if (authHeader) {
-      console.log('회원가입 응답에서 토큰 발견:', authHeader.substring(0, 20) + '...');
-    } else {
-      console.warn('회원가입 응답에 토큰이 없습니다.');
-    }
+    console.log('📍 axios.post 응답 받음!');
+    console.log('📍 응답 데이터:', response.data);
     
     return response.data;
   } catch (error: any) {
-    console.error('=== 회원가입 실패 ===');
-    console.error('에러 타입:', error.constructor.name);
-    console.error('에러 메시지:', error.message);
+    console.error('\n❌ === signUp 함수 에러 ===');
+    console.error('📍 에러 발생 시간:', new Date().toISOString());
+    console.error('📍 에러 타입:', error.constructor.name);
+    console.error('📍 에러 메시지:', error.message);
+    console.error('📍 에러 코드:', error.code);
+    
     if (error.response) {
-      console.error('응답 상태:', error.response.status);
-      console.error('응답 데이터:', JSON.stringify(error.response.data, null, 2));
-      console.error('응답 헤더:', error.response.headers);
+      // 서버에서 응답을 받았지만 에러 상태 (4xx, 5xx)
+      console.error('📍 서버 응답 에러');
+      console.error('  - 상태 코드:', error.response.status);
+      console.error('  - 상태 텍스트:', error.response.statusText);
+      console.error('  - 응답 데이터:', JSON.stringify(error.response.data, null, 2));
     } else if (error.request) {
-      console.error('요청은 보냈지만 응답을 받지 못함:', error.request);
-      console.error('요청 URL:', error.config?.url);
-      console.error('요청 Base URL:', error.config?.baseURL);
+      // 요청은 보냈지만 응답을 받지 못함 (네트워크 에러, 타임아웃)
+      console.error('📍 네트워크 에러 - 응답 없음');
+      console.error('  - 가능한 원인: 서버 다운, 네트워크 연결 끊김, 타임아웃');
+      console.error('  - 요청 URL:', error.config?.baseURL + error.config?.url);
+      
+      if (error.code === 'ECONNABORTED') {
+        console.error('  - 타임아웃: 30초 내에 서버 응답이 없음');
+      } else if (error.code === 'NETWORK_ERROR') {
+        console.error('  - 네트워크 연결 실패');
+      }
     } else {
-      console.error('요청 설정 중 에러:', error.message);
+      // 요청 설정 중 에러
+      console.error('📍 요청 설정 에러:', error.message);
     }
-    console.error('전체 에러 객체:', error);
+    
+    console.error('========================\n');
     throw error;
   }
 };

@@ -60,14 +60,19 @@ export default function OnboardingSignUp({ onSignUpComplete }: OnboardingSignUpP
     if (!isFormValid || isLoading) return;
 
     setIsLoading(true);
+    const startTime = Date.now(); // 시작 시간 기록
+    
     try {
       console.log('회원가입 시작...');
       
       // AuthStore에서 FCM 토큰 가져오기
       const { fcmToken } = useAuthStore.getState();
-      console.log('FCM 토큰 상태:', fcmToken ? fcmToken.substring(0, 50) + '...' : '없음');
-      console.log('FCM 토큰 전체 길이:', fcmToken ? fcmToken.length : 0);
-      console.log('FCM 토큰 타입:', typeof fcmToken);
+      
+      console.log('\n🔍 === FCM 토큰 상태 확인 ===');
+      console.log('📍 FCM 토큰:', fcmToken ? fcmToken.substring(0, 50) + '...' : '없음');
+      console.log('📍 토큰 길이:', fcmToken ? fcmToken.length : 0);
+      console.log('📍 토큰 타입:', typeof fcmToken);
+      console.log('========================\n');
 
       // 회원가입 API 호출
       console.log('회원가입 API 호출 중...');
@@ -89,25 +94,33 @@ export default function OnboardingSignUp({ onSignUpComplete }: OnboardingSignUpP
       
       // 백엔드는 "birth" 필드명을 사용하고 LocalDate 타입을 받습니다 (YYYY-MM-DD 형식)
       // FCM 토큰이 없으면 빈 문자열로 전송 (백엔드에서 nullable로 처리)
-      // 백엔드 스펙에 맞게 필드 순서를 명시적으로 보장
+      // 백엔드 UserSignupRequestDTO에 맞게 필드명 정확히 매칭
       const signUpData: any = {};
       signUpData.name = name.trim();
       signUpData.birth = normalizedBirth; // YYYY-MM-DD 형식
-      signUpData.phone = normalizedPhone; // 하이픈 제거된 전화번호
-      signUpData.fcm_token = fcmToken || ''; // FCM 토큰을 맨 마지막에 배치, 원본 그대로 보존
+      signUpData.phone = normalizedPhone; // 백엔드 DTO: phone (하이픈 제거된 전화번호)
+      signUpData.fcmToken = fcmToken || ''; // 백엔드 DTO: fcmToken
 
-      console.log('=== 회원가입 요청 데이터 상세 ===');
-      console.log('요청 URL: http://15.165.38.252:8080/users');
-      console.log('요청 데이터:', JSON.stringify(signUpData, ['name', 'birth', 'phone', 'fcm_token'], 2));
-      console.log('fcm_token 길이:', signUpData.fcm_token.length);
-      console.log('fcm_token 값:', signUpData.fcm_token);
+      console.log('\n📤 === 회원가입 요청 준비 ===');
+      console.log('📍 요청 시간:', new Date().toISOString());
+      console.log('📍 요청 URL: POST http://15.165.38.252:8080/users');
+      console.log('📍 요청 데이터:', JSON.stringify(signUpData, ['name', 'birth', 'phone', 'fcmToken'], 2));
+      console.log('📍 fcmToken 길이:', signUpData.fcmToken.length);
+      console.log('📍 fcmToken 전체:', signUpData.fcmToken);
+      console.log('========================\n');
 
       console.log('🚀 signUp API 호출 시작...');
+      
       const response = await signUp(signUpData);
       
-      console.log('✅ signUp API 응답 받음:', response);
-      console.log('응답 타입:', typeof response);
-      console.log('응답 구조:', Object.keys(response || {}));
+      const endTime = Date.now();
+      console.log('\n✅ === 회원가입 응답 수신 ===');
+      console.log('📍 응답 시간:', new Date().toISOString());
+      console.log('📍 소요 시간:', (endTime - startTime) + 'ms');
+      console.log('📍 응답 타입:', typeof response);
+      console.log('📍 응답 구조:', Object.keys(response || {}));
+      console.log('📍 응답 전체:', JSON.stringify(response, null, 2));
+      console.log('========================\n');
       
       // 백엔드 응답 형식: { header: { resultCode: 1000, resultMsg: "회원가입 성공" }, body: { uno: ... } }
       console.log('🔍 응답 검증 중...');
@@ -122,14 +135,14 @@ export default function OnboardingSignUp({ onSignUpComplete }: OnboardingSignUpP
         // Store에 사용자 정보 저장 (정규화된 값으로 저장)
         const uno = response.body.uno;
         if (uno) {
-          // 🔥 정규화된 값으로 저장 (phone은 하이픈 제거된 값)
+          // 🔥 정규화된 값으로 저장 (call은 하이픈 제거된 값)
           useUserStore.getState().setUserFromApi(
             uno,
             name.trim(),
-            normalizedPhone, // 정규화된 전화번호 (하이픈 제거)
+            normalizedPhone, // 정규화된 전화번호 (하이픈 제거) - call 필드로 전송됨
             normalizedBirth  // 정규화된 생년월일
           );
-          console.log('[OnboardingSignUp] 사용자 정보 저장 완료:', { uno, name: name.trim(), phone: normalizedPhone, birth: normalizedBirth });
+            console.log('[OnboardingSignUp] 사용자 정보 저장 완료:', { uno, name: name.trim(), phone: normalizedPhone, birth: normalizedBirth });
         }
         
         // 토큰 저장 확인
@@ -157,13 +170,30 @@ export default function OnboardingSignUp({ onSignUpComplete }: OnboardingSignUpP
         throw new Error(response.header?.resultMsg || '회원가입에 실패했습니다.');
       }
     } catch (error: any) {
-      console.error('회원가입 오류:', error);
-      console.error('에러 상세:', {
-        message: error.message,
-        response: error.response,
-        status: error.response?.status,
-        data: error.response?.data,
-      });
+      const errorTime = Date.now();
+      console.error('\n❌ === 회원가입 최종 에러 ===');
+      console.error('📍 에러 시간:', new Date().toISOString());
+      console.error('📍 소요 시간:', (errorTime - startTime) + 'ms');
+      console.error('📍 에러 메시지:', error.message);
+      console.error('📍 에러 코드:', error.code);
+      console.error('📍 에러 타입:', error.constructor.name);
+      
+      if (error.response) {
+        console.error('📍 서버 응답 에러:');
+        console.error('  - 상태:', error.response.status, error.response.statusText);
+        console.error('  - 데이터:', JSON.stringify(error.response.data, null, 2));
+      } else if (error.request) {
+        console.error('📍 네트워크 에러 (응답 없음):');
+        console.error('  - 요청 URL:', 'http://15.165.38.252:8080/users');
+        if (error.code === 'ECONNABORTED') {
+          console.error('  - 타임아웃: 30초 내에 응답이 없었습니다');
+        } else if (error.code === 'NETWORK_ERROR') {
+          console.error('  - 네트워크 연결 실패');
+        }
+      } else {
+        console.error('📍 기타 에러:', error.message);
+      }
+      console.error('========================\n');
       
       // 409 Conflict 에러 처리 (이미 가입한 사용자) - 자동 로그인 시도
       if (error.response?.status === 409 || error.response?.data?.header?.resultCode === 2001) {
@@ -362,7 +392,7 @@ export default function OnboardingSignUp({ onSignUpComplete }: OnboardingSignUpP
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top }]}>
         <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>기본 정보 입력</Text>
+        <Text style={styles.headerTitle}>기본 정보 입력</Text>
         </View>
       </View>
 
@@ -463,12 +493,12 @@ export default function OnboardingSignUp({ onSignUpComplete }: OnboardingSignUpP
           {isLoading ? (
             <ActivityIndicator color="#ffffff" size="small" />
           ) : (
-            <Text style={[
-              styles.submitButtonText,
+          <Text style={[
+            styles.submitButtonText,
               isFormValid && !isLoading ? styles.submitButtonTextActive : styles.submitButtonTextDeactive
-            ]}>
-              회원가입
-            </Text>
+          ]}>
+            회원가입
+          </Text>
           )}
         </TouchableOpacity>
       </View>
