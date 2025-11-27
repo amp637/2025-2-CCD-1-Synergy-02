@@ -1,4 +1,5 @@
 import axios, { AxiosResponse, AxiosRequestConfig } from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuthStore } from '../stores/authStore';
 
 // ====================================================
@@ -14,9 +15,10 @@ export const API_BASE_URL = BASE_URL;
 // ====================================================
 const apiClient = axios.create({
   baseURL: BASE_URL,
-  timeout: 300000,
+  timeout: 30000, // 30초로 복원 (필드명 수정 후 정상 응답 대기)
   headers: {
     Accept: 'application/json',
+    'Content-Type': 'application/json',
   },
 });
 
@@ -33,11 +35,22 @@ apiClient.interceptors.request.use(
     const token = authStore.token;
     const uno = authStore.uno;
     
-    // 🔍 토큰 및 헤더 로깅
-    console.log('=== API 요청 인터셉터 ===');
-    console.log('요청 URL:', config.url);
-    console.log('요청 메서드:', config.method?.toUpperCase());
-    console.log('전체 URL:', config.baseURL + config.url);
+    // 🔍 네트워크 요청 상세 로깅
+    console.log('\n🌐 === API 요청 시작 ===');
+    console.log('📍 요청 URL:', config.url);
+    console.log('📍 요청 메서드:', config.method?.toUpperCase());
+    console.log('📍 전체 URL:', config.baseURL + config.url);
+    console.log('📍 타임아웃:', config.timeout + 'ms');
+    console.log('📍 요청 시간:', new Date().toISOString());
+    
+    // 요청 데이터 로깅 (회원가입의 경우)
+    if (isSignUpRequest && config.data) {
+      console.log('📦 요청 데이터 (회원가입):');
+      console.log('  - 데이터 타입:', typeof config.data);
+      console.log('  - 데이터 크기:', JSON.stringify(config.data).length + ' bytes');
+      console.log('  - 데이터 내용:', JSON.stringify(config.data, null, 2));
+    }
+    
     console.log('[인증 상태] UNO:', uno, '| 토큰 존재:', !!token);
     
     if (isSignUpRequest) {
@@ -121,10 +134,19 @@ apiClient.interceptors.request.use(
 // ====================================================
 apiClient.interceptors.response.use(
   (response) => {
+    // 🔍 네트워크 응답 상세 로깅
+    console.log('\n✅ === API 응답 수신 ===');
+    console.log('📍 응답 URL:', response.config.url);
+    console.log('📍 응답 상태:', response.status, response.statusText);
+    console.log('📍 응답 시간:', new Date().toISOString());
+    console.log('📍 응답 헤더:', JSON.stringify(response.headers, null, 2));
+    console.log('📍 응답 데이터:', JSON.stringify(response.data, null, 2));
+    
     // 🔍 응답 헤더에서 토큰 추출하여 저장 (로그인/회원가입 성공 시에만)
     // ⚠️ 중요: axios는 헤더 키를 모두 소문자로 변환함
     // ⚠️ 중요: resultCode가 1000일 때만 토큰 저장 (성공 응답만 처리)
     const resultCode = response.data?.header?.resultCode;
+    console.log('📍 resultCode:', resultCode, '(타입:', typeof resultCode, ')');
     
     // 회원가입/로그인 성공일 때만 토큰 저장
     if (resultCode === 1000) {
@@ -162,23 +184,47 @@ apiClient.interceptors.response.use(
     return response;
   },
   (error) => {
-    console.error('=== API 응답 에러 ===');
-    console.error('에러 상태:', error.response?.status);
-    console.error('에러 데이터:', JSON.stringify(error.response?.data, null, 2));
+    console.error('\n❌ === API 에러 발생 ===');
+    console.error('📍 에러 시간:', new Date().toISOString());
+    console.error('📍 요청 URL:', error.config?.url);
+    console.error('📍 요청 메서드:', error.config?.method?.toUpperCase());
+    console.error('📍 에러 메시지:', error.message);
+    console.error('📍 에러 코드:', error.code);
     
     if (error.response) {
-      console.error("[API ERROR]", error.response.status, error.response.data);
+      // 서버에서 응답을 받았지만 에러 상태
+      console.error('📍 응답 상태:', error.response.status, error.response.statusText);
+      console.error('📍 응답 헤더:', JSON.stringify(error.response.headers, null, 2));
+      console.error('📍 응답 데이터:', JSON.stringify(error.response.data, null, 2));
+      
+      // 500 에러인 경우 특별 처리
+      if (error.response.status === 500) {
+        console.error('🚨 서버 내부 오류 (500):');
+        console.error('  - 백엔드 서버에서 처리 중 오류 발생');
+        console.error('  - 가능한 원인: DB 연결 실패, 코드 오류, 데이터 검증 실패');
+        console.error('  - 요청 데이터 재확인 필요');
+      }
 
       if (error.response.status === 401) {
         console.warn('401 Unauthorized - 로그아웃 처리');
         useAuthStore.getState().logout();
       }
     } else if (error.request) {
-      console.error('요청은 보냈지만 응답을 받지 못함');
+      // 요청은 보냈지만 응답을 받지 못함 (네트워크 에러, 타임아웃 등)
+      console.error('📍 네트워크 에러: 요청은 보냈지만 응답을 받지 못함');
+      console.error('📍 요청 객체:', error.request);
+      
+      if (error.code === 'ECONNABORTED') {
+        console.error('📍 타임아웃 에러: 서버 응답이 30초 내에 오지 않음');
+      } else if (error.code === 'NETWORK_ERROR') {
+        console.error('📍 네트워크 연결 에러: 인터넷 연결 또는 서버 접근 불가');
+      }
     } else {
-      console.error('요청 설정 중 에러:', error.message);
+      // 요청 설정 중 에러
+      console.error('📍 요청 설정 에러:', error.message);
     }
     
+    console.error('========================\n');
     return Promise.reject(error);
   }
 );

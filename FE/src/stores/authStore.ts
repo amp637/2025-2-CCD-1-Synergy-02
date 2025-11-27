@@ -7,11 +7,14 @@ import { useMedicationStore } from './medicationStore';
 interface AuthState {
   token: string | null;
   uno: number | null; // 사용자 번호
+  fcmToken: string | null; // FCM 푸시 토큰
   isAuthenticated: boolean;
   login: (token: string, uno?: number) => void;
   logout: () => void;
   checkToken: () => string | null;
   setUno: (uno: number) => void; // uno 설정 메서드
+  setFcmToken: (token: string) => void; // FCM 토큰 설정
+  initializeFcmToken: () => Promise<void>; // 앱 시작 시 FCM 토큰 초기화
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -19,6 +22,7 @@ export const useAuthStore = create<AuthState>()(
     (set, get) => ({
       token: null,
       uno: null,
+      fcmToken: null,
       isAuthenticated: false,
       login: (token: string, uno?: number) => {
         console.log('[AuthStore] 🔥 토큰 저장 시작:', token.substring(0, 30) + '...');
@@ -43,6 +47,7 @@ export const useAuthStore = create<AuthState>()(
       logout: () => {
         console.log('[AuthStore] 로그아웃 - 토큰 및 사용자 정보 삭제');
         set({ token: null, uno: null, isAuthenticated: false });
+        // FCM 토큰은 로그아웃해도 유지 (재로그인 시 사용)
         
         // 다른 store도 함께 초기화 (순환 참조 방지를 위해 setTimeout 사용)
         setTimeout(() => {
@@ -65,6 +70,30 @@ export const useAuthStore = create<AuthState>()(
         console.log('[AuthStore] 토큰 확인:', token ? token.substring(0, 30) + '...' : '없음');
         console.log('[AuthStore] 인증 상태:', isAuth);
         return token;
+      },
+      setFcmToken: (token: string) => {
+        console.log('[AuthStore] FCM 토큰 저장:', token.substring(0, 50) + '...');
+        set({ fcmToken: token });
+        
+        // AsyncStorage에도 별도 저장 (persist 미들웨어와 별개로)
+        AsyncStorage.setItem('fcmToken', token).then(() => {
+          console.log('[AuthStore] ✅ FCM 토큰 AsyncStorage 저장 완료');
+        }).catch((error) => {
+          console.error('[AuthStore] ❌ FCM 토큰 AsyncStorage 저장 실패:', error);
+        });
+      },
+      initializeFcmToken: async () => {
+        try {
+          const savedFcmToken = await AsyncStorage.getItem('fcmToken');
+          if (savedFcmToken) {
+            console.log('[AuthStore] 저장된 FCM 토큰 복원:', savedFcmToken.substring(0, 50) + '...');
+            set({ fcmToken: savedFcmToken });
+          } else {
+            console.log('[AuthStore] 저장된 FCM 토큰 없음');
+          }
+        } catch (error) {
+          console.error('[AuthStore] FCM 토큰 초기화 실패:', error);
+        }
       },
     }),
     {

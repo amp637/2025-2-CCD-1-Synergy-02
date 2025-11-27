@@ -4,6 +4,7 @@ import * as SplashScreenExpo from 'expo-splash-screen';
 import { Asset } from 'expo-asset';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { getUserMedications } from './src/api/userApi';
+import { useAuthStore } from './src/stores/authStore';
 
 // Import all screens
 import SplashScreen from './src/screens/SplashScreen';
@@ -199,6 +200,7 @@ const sampleRecords: RecordItem[] = [
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<ScreenName>('SplashScreen');
   const [appIsReady, setAppIsReady] = useState(false);
+  const { initializeFcmToken } = useAuthStore();
   const [captureMode, setCaptureMode] = useState<'prescription' | 'envelope'>('prescription');
   const [medications, setMedications] = useState<Medication[]>([]); // 처방전 데이터
   const [showRetakeMessage, setShowRetakeMessage] = useState(false); // 재촬영 메시지 표시 여부
@@ -219,6 +221,9 @@ export default function App() {
   useEffect(() => {
     async function loadResourcesAndDataAsync() {
       try {
+        // FCM 토큰 초기화 (앱 시작 시 저장된 토큰 복원)
+        await initializeFcmToken();
+        
         // 모든 이미지 미리 로드 (런타임 준비 후에만 require() 실행)
         const imageAssets = getImageAssets();
         const imageAssetPromises = cacheImages(imageAssets);
