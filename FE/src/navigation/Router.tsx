@@ -11,6 +11,8 @@ import OnboardingEveningTimeSet from '../screens/onboarding/OnboardingEveningTim
 import OnboardingBedTimeSet from '../screens/onboarding/OnboardingBedTimeSet';
 import PrescriptionCaptureScreen from '../screens/Prescription/PrescriptionCaptureScreen';
 import PrescriptionProcessingScreen from '../screens/Prescription/PrescriptionProcessingScreen';
+import MedicationEnvelopeCaptureScreen from '../screens/Prescription/MedicationEnvelopeCaptureScreen';
+import MedicationEnvelopeProcessingScreen from '../screens/Prescription/MedicationEnvelopeProcessingScreen';
 import PrescriptionIntakeTimeSelectScreen from '../screens/Prescription/PrescriptionIntakeTimeSelectScreen';
 import PrescriptionAnalysisResultScreen from '../screens/Prescription/PrescriptionAnalysisResultScreen';
 import EditInfoSelect from '../screens/edit/EditInfoSelect';
@@ -31,7 +33,9 @@ export type RootStackParamList = {
   OnboardingBedTimeSet: undefined;
   PrescriptionCapture: { mode?: 'prescription' | 'envelope' } | undefined;
   PrescriptionProcessing: { imageUri: string; mode?: 'prescription' | 'envelope' } | undefined;
-  PrescriptionIntakeTimeSelect: { source?: 'prescription' | 'medicationEnvelope' } | undefined;
+  MedicationEnvelopeCapture: undefined;
+  MedicationEnvelopeProcessing: { imageUri: string } | undefined;
+  PrescriptionIntakeTimeSelect: { umno: number; taken?: number; comb?: string; source?: 'prescription' | 'medicationEnvelope' } | undefined;
   PrescriptionAnalysisResult: { umno: number; source?: 'prescription' | 'medicationEnvelope' } | undefined;
   PrescriptionDetail: { umno: number } | undefined;
   EditInfoSelect: undefined;
@@ -57,6 +61,8 @@ export default function Router() {
         <Stack.Screen name="Home" component={HomeScreenEmpty} />
         <Stack.Screen name="PrescriptionCapture" component={PrescriptionCaptureScreen} />
         <Stack.Screen name="PrescriptionProcessing" component={PrescriptionProcessingScreen} />
+        <Stack.Screen name="MedicationEnvelopeCapture" component={MedicationEnvelopeCaptureScreen} />
+        <Stack.Screen name="MedicationEnvelopeProcessing" component={MedicationEnvelopeProcessingScreen} />
         <Stack.Screen name="PrescriptionIntakeTimeSelect" component={PrescriptionIntakeTimeSelectScreen} />
         <Stack.Screen name="PrescriptionAnalysisResult" component={PrescriptionAnalysisResultScreen} />
         <Stack.Screen name="PrescriptionDetail" component={PrescriptionDetailScreen} />

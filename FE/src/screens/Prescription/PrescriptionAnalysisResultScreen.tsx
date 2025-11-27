@@ -18,6 +18,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import responsive from '../../utils/responsive';
 import { getMedicationDetail, updateMedicationCategory, MedicationDetailResponse } from '../../api/medicationApi';
 import { RootStackParamList } from '../../navigation/Router';
+import { getMedicineImageSource } from '../../utils/medicineImageMap';
 
 type PrescriptionAnalysisResultScreenRouteProp = RouteProp<RootStackParamList, 'PrescriptionAnalysisResult'>;
 type PrescriptionAnalysisResultScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'PrescriptionAnalysisResult'>;
@@ -62,12 +63,25 @@ export default function PrescriptionAnalysisResultScreen({
   source: propSource = 'prescription',
   onGoHome 
 }: PrescriptionAnalysisResultScreenProps) {
-  const navigation = useNavigation<PrescriptionAnalysisResultScreenNavigationProp>();
-  const route = useRoute<PrescriptionAnalysisResultScreenRouteProp>();
+  // 네비게이션 사용 시도 (NavigationContainer 안에 있을 때만 사용 가능)
+  // App.tsx에서 직접 사용되는 경우를 대비해 안전하게 처리
+  let navigation: PrescriptionAnalysisResultScreenNavigationProp | null = null;
+  let route: PrescriptionAnalysisResultScreenRouteProp | null = null;
+  
+  // useNavigation과 useRoute는 Hook이므로 항상 호출해야 하지만, NavigationContainer 밖에서는 에러 발생 가능
+  try {
+    navigation = useNavigation<PrescriptionAnalysisResultScreenNavigationProp>();
+    route = useRoute<PrescriptionAnalysisResultScreenRouteProp>();
+  } catch (error: any) {
+    // NavigationContainer 밖에서 렌더링되는 경우 (예: App.tsx에서 직접 사용)
+    // 이 경우 props를 사용하여 화면 전환 처리
+    navigation = null;
+    route = null;
+  }
   
   // route.params에서 umno와 source를 가져오거나 props를 사용
-  const umno = route.params?.umno || propUmno;
-  const source = route.params?.source || propSource;
+  const umno = route?.params?.umno || propUmno;
+  const source = route?.params?.source || propSource;
   
   const { width } = useWindowDimensions();
   const isTablet = width > 600;
@@ -98,15 +112,54 @@ export default function PrescriptionAnalysisResultScreen({
             category: data.category,
             taken: data.taken,
             combination: data.comb,
-            medicines: data.medicines.map((med) => ({
-              mdno: med.mdno,
-              name: med.name,
-              classification: med.classification,
-              image: med.image,
-              description: med.description,
-              information: med.information,
-              materials: med.materials,
-            })),
+            medicines: data.medicines.map((med) => {
+              // materials 파싱 (배열이 중첩되어 있을 수 있음)
+              let materials: any[] = [];
+              if (med.materials) {
+                if (Array.isArray(med.materials)) {
+                  // 배열인 경우 평탄화 처리
+                  materials = med.materials.flat();
+                  // 객체 배열인 경우 name 속성 추출
+                  materials = materials.map((m: any) => {
+                    if (typeof m === 'object' && m !== null) {
+                      return m.name || m.mtno || m;
+                    }
+                    return m;
+                  }).filter(Boolean);
+                } else {
+                  materials = [med.materials];
+                }
+              }
+              
+              // materials를 warning 형식으로 변환
+              const warningItems = materials.map((m: any) => {
+                if (typeof m === 'object' && m !== null) {
+                  return m.name || String(m);
+                }
+                return String(m);
+              }).filter(Boolean);
+              
+              const warning = warningItems.length > 0 ? {
+                title: '병용 섭취 주의',
+                items: warningItems,
+              } : undefined;
+              
+              // 개발 모드에서만 상세 로그 출력
+              if (__DEV__ && warning) {
+                console.log(`[PrescriptionAnalysisResultScreen] 약품: ${med.name} - 병용섭취 주의: ${warningItems.join(', ')}`);
+              }
+              
+              return {
+                mdno: med.mdno,
+                name: med.name,
+                classification: med.classification,
+                image: med.image,
+                description: med.description,
+                information: med.information,
+                materials: materials,
+                warning: warning,
+              };
+            }),
           });
         }
       } catch (error: any) {
@@ -255,13 +308,25 @@ export default function PrescriptionAnalysisResultScreen({
                 <View style={styles.medicationContentWrapper}>
                   <View style={styles.medicationItem}>
                     <View style={styles.medicationContent}>
-                      <View style={styles.medicationHeader}>
-                        <Text style={styles.medicationNumber}>#{index + 1}</Text>
-                        <View style={styles.medicationTypeTag}>
-                          <Text style={styles.medicationTypeText}>{medicine.classification}</Text>
+                      <View style={styles.medicationHeaderWithImage}>
+                        <View style={styles.medicationTextContainer}>
+                          <View style={styles.medicationHeader}>
+                            <Text style={styles.medicationNumber}>#{index + 1}</Text>
+                            <View style={styles.medicationTypeTag}>
+                              <Text style={styles.medicationTypeText}>{medicine.classification}</Text>
+                            </View>
+                          </View>
+                          <Text style={styles.medicationName}>{medicine.name}</Text>
+                        </View>
+                        {/* 약 이미지 - 오른쪽 상단 */}
+                        <View style={styles.medicationImageContainer}>
+                          <Image
+                            source={getMedicineImageSource(medicine.mdno)}
+                            style={styles.medicationImage}
+                            resizeMode="contain"
+                          />
                         </View>
                       </View>
-                      <Text style={styles.medicationName}>{medicine.name}</Text>
                     </View>
                   </View>
                   
@@ -411,6 +476,15 @@ const styles = StyleSheet.create({
   medicationContent: {
     flex: 1,
   },
+  medicationHeaderWithImage: {
+    flexDirection: 'row' as any,
+    alignItems: 'flex-start' as any,
+    justifyContent: 'space-between' as any,
+  },
+  medicationTextContainer: {
+    flex: 1,
+    marginRight: responsive(12),
+  },
   medicationHeader: {
     flexDirection: 'row' as any,
     alignItems: 'center' as any,
@@ -440,6 +514,20 @@ const styles = StyleSheet.create({
     fontSize: responsive(20),
     color: '#364153',
     lineHeight: responsive(24),
+  },
+  medicationImageContainer: {
+    width: responsive(60),
+    height: responsive(60),
+    borderRadius: responsive(8),
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center' as any,
+    alignItems: 'center' as any,
+    marginLeft: responsive(12),
+  },
+  medicationImage: {
+    width: responsive(60),
+    height: responsive(60),
+    borderRadius: responsive(8),
   },
   warningSection: {
     backgroundColor: '#FFF9E6',

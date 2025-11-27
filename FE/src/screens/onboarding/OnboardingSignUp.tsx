@@ -17,6 +17,8 @@ import Svg, { Path, Rect } from 'react-native-svg';
 import responsive from '../../utils/responsive';
 import { getFcmToken } from '../../utils/fcmToken';
 import { signUp, login } from '../../api/authApi';
+import { useUserStore } from '../../stores/userStore';
+import { useAuthStore } from '../../stores/authStore';
 
 interface OnboardingSignUpProps {
   onSignUpComplete?: (isLogin?: boolean) => void; // isLogin: true면 로그인, false면 회원가입
@@ -87,14 +89,28 @@ export default function OnboardingSignUp({ onSignUpComplete }: OnboardingSignUpP
 
       // 2. 회원가입 API 호출
       console.log('회원가입 API 호출 중...');
-      console.log('회원가입 데이터:', { name: name.trim(), phone: phone.trim(), birth: birthdate.trim() });
+      
+      // 🔥 phone과 birth 형식 정규화 (백엔드 요구사항에 맞춤)
+      // phone: 하이픈 제거 (숫자만)
+      const normalizedPhone = phone.trim().replace(/-/g, '');
+      
+      // birth: YYYY-MM-DD 형식 강제
+      const normalizedBirth = birthdate.trim();
+      
+      // 생년월일 형식 검증
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(normalizedBirth)) {
+        throw new Error('생년월일 형식이 올바르지 않습니다. (YYYY-MM-DD 형식이어야 합니다)');
+      }
+      
+      console.log('회원가입 데이터 (정규화 전):', { name: name.trim(), phone: phone.trim(), birth: birthdate.trim() });
+      console.log('회원가입 데이터 (정규화 후):', { name: name.trim(), phone: normalizedPhone, birth: normalizedBirth });
       
       // 백엔드는 "birth" 필드명을 사용하고 LocalDate 타입을 받습니다 (YYYY-MM-DD 형식)
       // FCM 토큰이 없으면 빈 문자열로 전송 (백엔드에서 nullable로 처리)
       const signUpData = {
         name: name.trim(),
-        phone: phone.trim(),
-        birth: birthdate.trim(), // 백엔드 필드명에 맞춤
+        phone: normalizedPhone, // 하이픈 제거된 전화번호
+        birth: normalizedBirth, // YYYY-MM-DD 형식
         fcmToken: fcmToken || '', // FCM 토큰이 없으면 빈 문자열
       };
 
@@ -105,7 +121,28 @@ export default function OnboardingSignUp({ onSignUpComplete }: OnboardingSignUpP
       // 백엔드 응답 형식: { header: { resultCode: 1000, resultMsg: "회원가입 성공" }, body: { uno: ... } }
       if (response.header?.resultCode === 1000 && response.body) {
         console.log('회원가입 성공:', response);
-        // JWT 토큰은 응답 헤더의 Authorization에 포함됩니다
+        
+        // Store에 사용자 정보 저장 (정규화된 값으로 저장)
+        const uno = response.body.uno;
+        if (uno) {
+          // 🔥 정규화된 값으로 저장 (phone은 하이픈 제거된 값)
+          useUserStore.getState().setUserFromApi(
+            uno,
+            name.trim(),
+            normalizedPhone, // 정규화된 전화번호 (하이픈 제거)
+            normalizedBirth  // 정규화된 생년월일
+          );
+          console.log('[OnboardingSignUp] 사용자 정보 저장 완료:', { uno, name: name.trim(), phone: normalizedPhone, birth: normalizedBirth });
+        }
+        
+        // 토큰 저장 확인
+        const savedToken = useAuthStore.getState().token;
+        if (!savedToken) {
+          console.error('[OnboardingSignUp] ⚠️ 회원가입 후 토큰이 저장되지 않았습니다!');
+          throw new Error('토큰 저장 실패');
+        }
+        
+        // JWT 토큰은 응답 헤더의 Authorization에 포함됩니다 (interceptor에서 자동 저장)
         // 성공 시 알림 없이 바로 다음 화면으로 이동
         setIsLoading(false);
         onSignUpComplete?.(false); // false = 회원가입 성공
@@ -123,55 +160,155 @@ export default function OnboardingSignUp({ onSignUpComplete }: OnboardingSignUpP
         data: error.response?.data,
       });
       
-      // 409 Conflict 에러 처리 (이미 가입한 사용자) - 팝업 없이 자동 로그인
+      // 409 Conflict 에러 처리 (이미 가입한 사용자) - 자동 로그인 시도
       if (error.response?.status === 409 || error.response?.data?.header?.resultCode === 2001) {
-        console.log('이미 가입된 사용자 감지, 자동 로그인 시도...');
+        console.log('=== 이미 가입된 사용자 감지, 자동 로그인 시도 ===');
+        console.log('회원가입 실패 이유: 이미 가입된 사용자');
         
         try {
           // 자동 로그인 시도
+          // 🔥 phone과 birth 형식 정규화 (백엔드 요구사항에 맞춤)
+          // phone: 하이픈 제거 (숫자만)
+          const normalizedPhone = phone.trim().replace(/-/g, '');
+          
+          // birth: YYYY-MM-DD 형식 강제
+          const normalizedBirth = birthdate.trim();
+          
+          // 생년월일 형식 검증
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(normalizedBirth)) {
+            throw new Error('생년월일 형식이 올바르지 않습니다. (YYYY-MM-DD 형식이어야 합니다)');
+          }
+          
           const loginData = {
             name: name.trim(),
-            phone: phone.trim(),
-            birth: birthdate.trim(),
+            phone: normalizedPhone, // 하이픈 제거된 전화번호
+            birth: normalizedBirth, // YYYY-MM-DD 형식
           };
+          
+          console.log('[OnboardingSignUp] 자동 로그인 API 호출 시작...');
+          console.log('[OnboardingSignUp] 정규화된 로그인 데이터:', loginData);
           
           const loginResponse = await login(loginData);
           
-          if (loginResponse.header?.resultCode === 1000) {
-            console.log('자동 로그인 성공:', loginResponse);
-            // 로그인 성공 시 복약 시간 설정 건너뛰고 홈 화면으로 이동
+          console.log('[OnboardingSignUp] 자동 로그인 API 응답:', loginResponse);
+          
+          if (loginResponse.header?.resultCode === 1000 && loginResponse.body) {
+            console.log('✅ 자동 로그인 성공:', loginResponse);
+            
+            // 🔥 Bearer 토큰이 Response Interceptor에서 자동으로 저장되었는지 확인
+            const savedToken = useAuthStore.getState().token;
+            const savedUno = useAuthStore.getState().uno;
+            
+            console.log('[OnboardingSignUp] === Bearer 토큰 저장 확인 ===');
+            console.log('[OnboardingSignUp] 저장된 토큰:', savedToken ? savedToken.substring(0, 30) + '...' : '없음');
+            console.log('[OnboardingSignUp] 저장된 uno:', savedUno);
+            
+            // ⚠️ 토큰이 없으면 절대 성공 처리하면 안 됨
+            if (!savedToken) {
+              console.error('[OnboardingSignUp] ❌ 토큰이 저장되지 않았습니다! 로그인 실패 처리');
+              throw new Error('토큰 저장 실패: 로그인에 실패했습니다.');
+            }
+            
+            // 응답 body의 uno와 저장된 uno가 일치하는지 확인
+            const responseUno = loginResponse.body.uno;
+            if (savedUno && savedUno !== responseUno) {
+              console.error(`[OnboardingSignUp] ⚠️ uno 불일치! 저장된 uno: ${savedUno}, 응답 uno: ${responseUno}`);
+              throw new Error('사용자 정보 불일치: 로그인에 실패했습니다.');
+            }
+            
+            console.log('[OnboardingSignUp] ✅ Bearer 토큰이 정상적으로 저장되었습니다.');
+            
+            // Store에 사용자 정보 저장 (정규화된 값으로 저장)
+            const uno = responseUno || savedUno;
+            if (!uno) {
+              throw new Error('사용자 번호를 찾을 수 없습니다.');
+            }
+            
+            // 🔥 정규화된 값으로 저장 (phone은 하이픈 제거된 값)
+            useUserStore.getState().setUserFromApi(
+              uno,
+              name.trim(),
+              normalizedPhone, // 정규화된 전화번호 (하이픈 제거)
+              normalizedBirth  // 정규화된 생년월일
+            );
+            console.log('[OnboardingSignUp] 자동 로그인 - 사용자 정보 저장 완료:', { uno, name: name.trim(), phone: normalizedPhone, birth: normalizedBirth });
+            
+            // 로그인 성공 시 홈 화면으로 이동
             setIsLoading(false);
-            // 콜백에 로그인 여부 전달 (true = 로그인 성공)
-            onSignUpComplete?.(true);
+            onSignUpComplete?.(true); // true = 자동 로그인 성공
+            return; // 성공 시 여기서 종료
           } else {
-            throw new Error(loginResponse.header?.resultMsg || '로그인에 실패했습니다.');
+            throw new Error(loginResponse.header?.resultMsg || '자동 로그인에 실패했습니다.');
           }
         } catch (loginError: any) {
-          console.error('자동 로그인 실패:', loginError);
-          Alert.alert(
-            '로그인 실패',
-            loginError.response?.data?.header?.resultMsg || loginError.response?.data?.message || loginError.message || '로그인 중 오류가 발생했습니다.',
-            [{ text: '확인', onPress: () => setIsLoading(false) }]
-          );
+          console.error('=== 자동 로그인 실패 ===');
+          console.error('자동 로그인 에러:', loginError);
+          console.error('자동 로그인 에러 상세:', {
+            message: loginError.message,
+            response: loginError.response,
+            status: loginError.response?.status,
+            data: loginError.response?.data,
+          });
+          
+          // 500 에러 처리 (백엔드에서 IllegalArgumentException이 500으로 반환되는 경우)
+          if (loginError.response?.status === 500) {
+            const errorMsg = loginError.response?.data?.header?.resultMsg 
+              || loginError.response?.data?.message 
+              || loginError.message 
+              || '로그인 중 서버 오류가 발생했습니다.';
+            
+            // 에러 메시지에 "회원이 존재하지 않습니다" 또는 "탈퇴한 회원"이 포함된 경우
+            if (errorMsg.includes('회원이 존재하지 않습니다') || errorMsg.includes('탈퇴한 회원')) {
+              Alert.alert(
+                '로그인 실패',
+                errorMsg + '\n\n입력하신 정보를 다시 확인해주세요.',
+                [{ text: '확인', onPress: () => setIsLoading(false) }]
+              );
+            } else {
+              Alert.alert(
+                '로그인 실패',
+                errorMsg + '\n\n다시 시도해주세요.',
+                [{ text: '확인', onPress: () => setIsLoading(false) }]
+              );
+            }
+          } else {
+            // 기타 에러 처리
+            Alert.alert(
+              '로그인 실패',
+              loginError.response?.data?.header?.resultMsg || loginError.response?.data?.message || loginError.message || '이미 가입된 사용자입니다. 로그인에 실패했습니다.\n\n다시 시도해주세요.',
+              [{ text: '확인', onPress: () => setIsLoading(false) }]
+            );
+          }
+          return;
         }
       } else {
-        // 기타 에러 처리
+        // 기타 에러 처리 (500 에러 포함)
+        const errorStatus = error.response?.status;
         const errorMessage = error.response?.data?.header?.resultMsg 
           || error.response?.data?.message 
           || error.message 
-          || `회원가입 중 오류가 발생했습니다. (상태 코드: ${error.response?.status || '알 수 없음'})`;
+          || `회원가입 중 오류가 발생했습니다. (상태 코드: ${errorStatus || '알 수 없음'})`;
         
         console.error('회원가입 실패 상세:', {
-          status: error.response?.status,
+          status: errorStatus,
           code: error.response?.data?.header?.resultCode,
           message: errorMessage,
         });
         
-        Alert.alert(
-          '회원가입 실패',
-          errorMessage + '\n\n다시 시도해주세요.',
-          [{ text: '확인', onPress: () => setIsLoading(false) }]
-        );
+        // 500 에러인 경우 특별 처리
+        if (errorStatus === 500) {
+          Alert.alert(
+            '회원가입 실패',
+            errorMessage + '\n\n입력하신 정보를 확인하고 다시 시도해주세요.',
+            [{ text: '확인', onPress: () => setIsLoading(false) }]
+          );
+        } else {
+          Alert.alert(
+            '회원가입 실패',
+            errorMessage + '\n\n다시 시도해주세요.',
+            [{ text: '확인', onPress: () => setIsLoading(false) }]
+          );
+        }
       }
     }
   };
