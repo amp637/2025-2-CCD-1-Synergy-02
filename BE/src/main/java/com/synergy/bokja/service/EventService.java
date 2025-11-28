@@ -98,8 +98,11 @@ public class EventService {
                 // 3. 저장한 이벤트로 DTO 생성
                 EventItemResponseDTO fcmPayload = buildEventResponseDTO(user.getUno(), newEvents);
 
-                // 4. FCM으로 전송
-//                 fcmService.sendEvents(user.getFcmToken(), fcmPayload);
+                if (user.getFcmToken() != null && !user.getFcmToken().isEmpty()) {
+//                    fcmService.sendEvents(user.getFcmToken(), fcmPayload);
+                } else {
+                    System.out.println("User " + user.getUno() + " has no FCM token. Skip sending.");
+                }
 
             } catch (Exception e) {
                 System.err.println("Error generating events for user " + user.getUno() + ": " + e.getMessage());
@@ -311,5 +314,13 @@ public class EventService {
 
         return new EventItemResponseDTO(uno, eventListDTOs);
 
+    }
+
+    public void sendCreatedEvents(UserEntity user, List<EventEntity> events) {
+        EventItemResponseDTO fcmPayload = buildEventResponseDTO(user.getUno(), events);
+
+        if (user.getFcmToken() != null && !user.getFcmToken().isEmpty()) {
+            fcmService.sendEvents(user.getFcmToken(), fcmPayload);
+        }
     }
 }

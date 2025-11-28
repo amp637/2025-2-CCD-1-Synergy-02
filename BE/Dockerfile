@@ -3,7 +3,7 @@ FROM eclipse-temurin:17-jdk
 
 # Python 설치
 RUN apt-get update --allow-insecure-repositories --allow-releaseinfo-change --allow-unauthenticated && \
-    apt-get install -y --no-install-recommends python3 python3-pip python3-venv && \
+    apt-get install -y --no-install-recommends python3 python3-pip python3-venv python-is-python3 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
