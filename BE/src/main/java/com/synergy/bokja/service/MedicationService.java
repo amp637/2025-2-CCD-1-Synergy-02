@@ -182,7 +182,7 @@ public class MedicationService {
             }
 
             // === description_table 저장 ===
-            String fullDescription = String.join("\n", finalDescriptionList);
+            String fullDescription = String.join(" ", finalDescriptionList);
 
             EventNameEntity eventName = eventNameRepository.findById(3L)
                     .orElseThrow(() -> new IllegalArgumentException("enno=3인 EventName을 찾을 수 없습니다."));
@@ -258,7 +258,7 @@ public class MedicationService {
     private String runPythonScript(String scriptPath, String... args) throws IOException, InterruptedException {
         // 1. 명령어 리스트 생성 ("python3", "script.py", "arg1", "arg2")
         List<String> command = new java.util.ArrayList<>();
-        command.add("python3"); // (또는 "python")
+        command.add("python"); // (또는 "python")
         command.add(scriptPath);
         command.addAll(Arrays.asList(args));
 
@@ -528,6 +528,7 @@ public class MedicationService {
 
         // 3. (중요) Python 스크립트에 '인자(argument)' 4개 전달
         String llmResult = runPythonScript(llmScriptPath, "description",
+                med.getName(),
                 med.getInformation(),
                 med.getDescription(),
                 objectMapper.writeValueAsString(formattedWarnings) // ["'프로바이오틱스' 관련 주의: ..."]
