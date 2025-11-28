@@ -322,14 +322,35 @@ public class MedicationService {
         List<String> medNames = new ArrayList<>();
         List<String> classifications = new ArrayList<>();
 
-        // 정규식 패턴: (모든문자)\n\[(대괄호안의문자)\]
-        // (.*)         -> Group 1: 약품명
-        // \n\[(.*?)\]    -> Group 2: 약효분류
-        Pattern medPattern = Pattern.compile("(.*)\n\\[(.*?)\\]");
-        Matcher matcher = medPattern.matcher(medicineBlock);
-        while (matcher.find()) {
-            medNames.add(matcher.group(1).trim()); // (예: "슈가메트서방정5/100···")
-            classifications.add(matcher.group(2).trim()); // (예: "당뇨병 치료제")
+        String[] lines = medicineBlock.split("\n");
+
+        for (String line : lines) {
+            line = line.trim();
+            if (line.isEmpty()) continue;
+
+            // [ ] 패턴 확인 (약효분류가 있는 경우)
+            Matcher matcher = Pattern.compile("(.*)\\[(.*?)\\]").matcher(line);
+
+            if (matcher.find()) {
+                String namePart = matcher.group(1).trim();
+                String classPart = matcher.group(2).trim();
+
+                if (!namePart.isEmpty()) {
+                    medNames.add(namePart);
+                    classifications.add(classPart);
+                }
+
+            } else {
+                // [ ] 가 없는 경우
+
+                // "텍스트 + 공백 + 숫자 + 단위" 형식이면 성분명으로 간주 -> 패스
+                if (line.matches(".*\\s\\d+(?:\\.\\d+)?(?:mg|ml|g|L|캡슐|정).*")) {
+                    continue;
+                }
+
+                medNames.add(line);
+                classifications.add(null);
+            }
         }
 
         // 3. 복약 횟수/일수 추출
