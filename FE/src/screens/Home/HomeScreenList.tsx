@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,12 +6,15 @@ import {
   StyleSheet,
   ScrollView,
   Image,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import responsive from '../../utils/responsive';
+import { getUserMedications } from '../../api/userApi';
+import { useMedicationStore } from '../../stores/medicationStore';
 
-// 임시 데이터 - 나중에 API로 대체
 interface Medication {
   id: number;
   category: string;
@@ -20,41 +23,95 @@ interface Medication {
   startDate: string;
 }
 
-const sampleMedications: Medication[] = [
-  {
-    id: 1,
-    category: '감기약',
-    hospital: '가람병원',
-    frequency: 2,
-    startDate: '2025년 10월 5일',
-  },
-  {
-    id: 2,
-    category: '소화제',
-    hospital: '서울병원',
-    frequency: 3,
-    startDate: '2025년 10월 10일',
-  },
-  {
-    id: 3,
-    category: '두통약',
-    hospital: '중앙병원',
-    frequency: 2,
-    startDate: '2025년 10월 12일',
-  },
-  {
-    id: 4,
-    category: '비타민',
-    hospital: '건강의원',
-    frequency: 1,
-    startDate: '2025년 10월 15일',
-  },
-];
+interface HomeScreenListProps {
+  onPrescriptionRegister?: () => void;
+  onPillEnvelopeRegister?: () => void;
+  onEditInfo?: () => void;
+  onMedicationRecord?: () => void;
+  onMedicationPress?: (id: number) => void;
+}
 
-export default function HomeScreenList() {
+export default function HomeScreenList({
+  onPrescriptionRegister,
+  onPillEnvelopeRegister,
+  onEditInfo,
+  onMedicationRecord,
+  onMedicationPress,
+}: HomeScreenListProps) {
+  const { medications: storeMedications, setMedications: setStoreMedications } = useMedicationStore();
+  const [medications, setMedications] = useState<Medication[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // 복약 목록 로드
+  useEffect(() => {
+    const loadMedications = async () => {
+      try {
+        setIsLoading(true);
+        const response = await getUserMedications();
+        if (response.header?.resultCode === 1000 && response.body?.medications) {
+          const medicationList: Medication[] = response.body.medications.map((med) => ({
+            id: med.umno,
+            category: med.category,
+            hospital: med.hospital,
+            frequency: med.taken,
+            startDate: med.startAt,
+          }));
+          
+          // 로컬 state 업데이트
+          setMedications(medicationList);
+          
+          // Store에 복약 목록 저장 (백엔드 형식으로 변환)
+          const storeMedicationList = response.body.medications.map((med) => ({
+            umno: med.umno,
+            category: med.category,
+            hospital: med.hospital,
+            taken: med.taken,
+            startAt: med.startAt,
+          }));
+          setStoreMedications(storeMedicationList);
+          console.log('[HomeScreenList] 복약 목록 Store에 저장 완료:', storeMedicationList.length, '개');
+        } else {
+          setMedications([]);
+          setStoreMedications([]);
+        }
+      } catch (error: any) {
+        console.error('복약 목록 로드 실패:', error);
+        Alert.alert('오류', '복약 목록을 불러오는데 실패했습니다.');
+        setMedications([]);
+        setStoreMedications([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadMedications();
+  }, [setStoreMedications]);
+
   const handleMedicationPress = (id: number) => {
     console.log('약 상세 페이지로 이동:', id);
-    // TODO: 네비게이션 연결
+    onMedicationPress?.(id);
+  };
+
+  // 날짜 포맷팅 함수 (YYYY-MM-DD -> YYYY년 MM월 DD일)
+  const formatDate = (dateString: string): string => {
+    if (!dateString) return '';
+    
+    try {
+      // YYYY-MM-DD 형식 파싱
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        // 날짜 파싱 실패 시 원본 반환
+        return dateString;
+      }
+      
+      const year = date.getFullYear();
+      const month = date.getMonth() + 1;
+      const day = date.getDate();
+      
+      return `${year}년 ${month}월 ${day}일`;
+    } catch (error) {
+      console.error('날짜 포맷팅 오류:', error);
+      return dateString;
+    }
   };
 
   return (
@@ -74,15 +131,25 @@ export default function HomeScreenList() {
             <Text style={styles.greetingText}>오늘도 건강한 하루 되세요</Text>
           </View>
           {/* 복약 기록 버튼 */}
-          <TouchableOpacity style={styles.recordButton} activeOpacity={0.8}>
-            <Text style={styles.recordButtonText}>복약 기록</Text>
-          </TouchableOpacity>
+          {medications.length > 0 && (
+            <TouchableOpacity 
+              style={styles.recordButton} 
+              activeOpacity={0.8}
+              onPress={onMedicationRecord}
+            >
+              <Text style={styles.recordButtonText}>복약 기록</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Action Buttons Grid */}
         <View style={styles.actionButtonsContainer}>
           {/* Prescription Button */}
-          <TouchableOpacity style={styles.actionButton} activeOpacity={0.8}>
+          <TouchableOpacity 
+            style={styles.actionButton} 
+            activeOpacity={0.8}
+            onPress={onPrescriptionRegister}
+          >
             <LinearGradient
               colors={['#6b6558', '#5a5347']}
               start={{ x: 0.5, y: 0 }}
@@ -101,7 +168,11 @@ export default function HomeScreenList() {
           </TouchableOpacity>
 
           {/* Pill Envelope Button */}
-          <TouchableOpacity style={styles.actionButton} activeOpacity={0.8}>
+          <TouchableOpacity 
+            style={styles.actionButton} 
+            activeOpacity={0.8}
+            onPress={onPillEnvelopeRegister}
+          >
             <LinearGradient
               colors={['#6b6558', '#5a5347']}
               start={{ x: 0.5, y: 0 }}
@@ -121,7 +192,11 @@ export default function HomeScreenList() {
         </View>
 
         {/* Edit Info Button */}
-        <TouchableOpacity style={styles.editInfoButton} activeOpacity={0.8}>
+        <TouchableOpacity 
+          style={styles.editInfoButton} 
+          activeOpacity={0.8}
+          onPress={onEditInfo}
+        >
           <LinearGradient
             colors={['#6b6558', '#5a5347']}
             start={{ x: 0.5, y: 0 }}
@@ -139,41 +214,64 @@ export default function HomeScreenList() {
           </LinearGradient>
         </TouchableOpacity>
 
-        {/* 복용 중인 약 섹션 */}
-        <View style={styles.medicationListSection}>
-          <Text style={styles.sectionTitle}>복용 중인 약</Text>
-          
-          {/* 약 목록 */}
-          {sampleMedications.map((medication) => (
-            <TouchableOpacity 
-              key={medication.id}
-              style={styles.medicationCard}
-              activeOpacity={0.8}
-              onPress={() => handleMedicationPress(medication.id)}
-            >
-              <View style={styles.medicationCardContent}>
-                {/* 왼쪽 정보 */}
-                <View style={styles.medicationInfo}>
-                  {/* 카테고리 태그 */}
-                  <View style={styles.categoryTag}>
-                    <Text style={styles.categoryTagText}>{medication.category}</Text>
+        {/* 로딩 중 */}
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#60584d" />
+            <Text style={styles.loadingText}>복약 목록 불러오는 중...</Text>
+          </View>
+        ) : medications.length > 0 ? (
+          /* 복용 중인 약 섹션 */
+          <View style={styles.medicationListSection}>
+            <Text style={styles.sectionTitle}>복용 중인 약</Text>
+            
+            {/* 약 목록 */}
+            {medications.map((medication) => (
+              <TouchableOpacity 
+                key={medication.id}
+                style={styles.medicationCard}
+                activeOpacity={0.8}
+                onPress={() => handleMedicationPress(medication.id)}
+              >
+                <View style={styles.medicationCardContent}>
+                  {/* 왼쪽 정보 */}
+                  <View style={styles.medicationInfo}>
+                    {/* 카테고리 태그 */}
+                    <View style={styles.categoryTag}>
+                      <Text style={styles.categoryTagText}>{medication.category}</Text>
+                    </View>
+                    {/* 병원 정보 */}
+                    <Text style={styles.hospitalText}>
+                      {medication.hospital} - 1일 {medication.frequency}회
+                    </Text>
+                    {/* 날짜 (생성일 기준) */}
+                    <Text style={styles.dateInfoText}>{formatDate(medication.startDate)}</Text>
                   </View>
-                  {/* 병원 정보 */}
-                  <Text style={styles.hospitalText}>
-                    {medication.hospital} - 1일 {medication.frequency}회
-                  </Text>
-                  {/* 날짜 */}
-                  <Text style={styles.dateInfoText}>{medication.startDate}</Text>
+                  
+                  {/* 오른쪽 화살표 아이콘 */}
+                  <View style={styles.arrowContainer}>
+                    <Text style={styles.arrowText}>›</Text>
+                  </View>
                 </View>
-                
-                {/* 오른쪽 화살표 아이콘 */}
-                <View style={styles.arrowContainer}>
-                  <Text style={styles.arrowText}>›</Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        ) : (
+          /* 빈 상태 */
+          <View style={styles.emptyStateContainer}>
+            <View style={styles.emptyIconCircle}>
+              <Image 
+                source={require('../../../assets/images/HomeScreenEmptyPill.png')} 
+                style={styles.emptyIconImage}
+                resizeMode="contain"
+              />
+            </View>
+            <View style={styles.emptyTextContainer}>
+              <Text style={styles.emptyTitle}>등록된 약이 없습니다</Text>
+              <Text style={styles.emptySubtitle}>처방전을 등록해주세요</Text>
+            </View>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -374,6 +472,55 @@ const styles = StyleSheet.create({
     fontSize: responsive(24),
     fontWeight: '400' as any,
     color: '#99a1af',
+  },
+  loadingContainer: {
+    width: '100%',
+    maxWidth: responsive(368),
+    paddingVertical: responsive(60),
+    alignItems: 'center' as any,
+    justifyContent: 'center' as any,
+  },
+  loadingText: {
+    marginTop: responsive(12),
+    fontSize: responsive(18),
+    color: '#99a1af',
+  },
+  emptyStateContainer: {
+    width: responsive(368),
+    height: responsive(297),
+    justifyContent: 'center' as any,
+    alignItems: 'center' as any,
+    alignSelf: 'center',
+    marginTop: responsive(40),
+  },
+  emptyIconCircle: {
+    width: responsive(112),
+    height: responsive(112),
+    borderRadius: responsive(56),
+    backgroundColor: '#f9fafb',
+    marginBottom: responsive(44),
+    justifyContent: 'center' as any,
+    alignItems: 'center' as any,
+  },
+  emptyIconImage: {
+    width: responsive(64),
+    height: responsive(64),
+  },
+  emptyTextContainer: {
+    alignItems: 'center' as any,
+  },
+  emptyTitle: {
+    fontSize: responsive(20),
+    fontWeight: '700' as any,
+    color: '#4a5565',
+    lineHeight: responsive(28),
+    marginBottom: 0,
+  },
+  emptySubtitle: {
+    fontSize: responsive(18),
+    fontWeight: '400' as any,
+    color: '#99a1af',
+    lineHeight: responsive(28),
   },
 });
 

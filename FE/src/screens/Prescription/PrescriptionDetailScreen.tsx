@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,9 +11,14 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import responsive from '../../utils/responsive';
-import { getMedicationDetail, MedicationDetailResponse } from '../../api/medicationApi';
+import { getMedicationDetail, MedicationDetailResponse, getMedicationCombination } from '../../api/medicationApi';
+import { useMedicationStore } from '../../stores/medicationStore';
+import { getMedicineImageSource } from '../../utils/medicineImageMap';
+import { playBase64Audio, playSequentialAudio, stopAudio } from '../../utils/ttsPlayer';
+import PinchZoomScrollView from '../../components/PinchZoomScrollView';
 
 interface Medicine {
   mdno: number;
@@ -22,6 +27,7 @@ interface Medicine {
   image?: string;
   description?: string;
   information?: string;
+  audioUrl?: string; // TTS 오디오 URL
   warning?: {
     title: string;
     items: string[];
@@ -54,7 +60,7 @@ interface SimpleMedication {
 interface PrescriptionDetailScreenProps {
   umno: number; // 복약 정보 ID
   onGoHome?: () => void;
-  onEditTime?: () => void;
+  onEditTime?: (timePeriods: string[]) => void; // 복약 시간대 배열 전달
 }
 
 export default function PrescriptionDetailScreen({ umno, onGoHome, onEditTime }: PrescriptionDetailScreenProps) {
@@ -62,9 +68,28 @@ export default function PrescriptionDetailScreen({ umno, onGoHome, onEditTime }:
   const isTablet = width > 600;
   const MAX_WIDTH = responsive(isTablet ? 420 : 360);
   const insets = useSafeAreaInsets();
+  const { setSelectedUmno } = useMedicationStore();
 
   const [prescriptionData, setPrescriptionData] = useState<PrescriptionData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [playingTtsMdno, setPlayingTtsMdno] = useState<number | null>(null); // 현재 재생 중인 약품의 mdno
+  
+  // 컴포넌트 언마운트 시 TTS 종료 (추가 안전장치)
+  useEffect(() => {
+    return () => {
+      console.log('[PrescriptionDetailScreen] 컴포넌트 언마운트 - TTS 종료');
+      stopAudio();
+      setPlayingTtsMdno(null);
+    };
+  }, []);
+  
+  // Store에 선택된 복약 설정
+  useEffect(() => {
+    if (umno) {
+      setSelectedUmno(umno);
+      console.log('[PrescriptionDetailScreen] 선택된 복약 umno 설정:', umno);
+    }
+  }, [umno, setSelectedUmno]);
 
   // 복약 상세 정보 조회
   useEffect(() => {
@@ -72,8 +97,15 @@ export default function PrescriptionDetailScreen({ umno, onGoHome, onEditTime }:
       try {
         setIsLoading(true);
         const response = await getMedicationDetail(umno);
+        console.log('=== 복약 상세 정보 응답 ===');
+        console.log('응답 상태:', response.header?.resultCode);
+        console.log('응답 본문:', JSON.stringify(response.body, null, 2));
+        
         if (response.header?.resultCode === 1000 && response.body) {
           const data = response.body;
+          console.log('약품 개수:', data.medicines?.length || 0);
+          console.log('약품 목록:', data.medicines);
+          
           setPrescriptionData({
             uno: 0, // 필요시 추가
             umno: data.umno,
@@ -81,16 +113,85 @@ export default function PrescriptionDetailScreen({ umno, onGoHome, onEditTime }:
             category: data.category,
             taken: data.taken,
             combination: data.comb,
-            medicines: data.medicines.map((med) => ({
-              mdno: med.mdno,
-              name: med.name,
-              classification: med.classification,
-              image: med.image,
-              description: med.description,
-              information: med.information,
-              materials: med.materials,
-            })),
+            medicines: data.medicines.map((med) => {
+              // materials 파싱 (배열이 중첩되어 있을 수 있음)
+              let materials: any[] = [];
+              
+              // materials가 존재하는지 확인
+              if (med.materials !== null && med.materials !== undefined) {
+                try {
+                  if (Array.isArray(med.materials)) {
+                    // 배열인 경우 평탄화 처리
+                    const flattened: any[] = [];
+                    const flattenArray = (arr: any[]) => {
+                      arr.forEach((item: any) => {
+                        if (Array.isArray(item)) {
+                          flattenArray(item);
+                        } else {
+                          flattened.push(item);
+                        }
+                      });
+                    };
+                    flattenArray(med.materials);
+                    
+                    // 객체 배열인 경우 name 속성 추출
+                    materials = flattened.map((m: any) => {
+                      if (m === null || m === undefined) return null;
+                      if (typeof m === 'object') {
+                        // MaterialDTO 형태: { mtno: number, name: string }
+                        const materialObj = m as { name?: string; mtno?: number };
+                        return materialObj.name || materialObj.mtno || null;
+                      }
+                      return m;
+                    }).filter((m: any) => m !== null && m !== undefined && m !== '');
+                  } else if (typeof med.materials === 'object') {
+                    // 단일 객체인 경우
+                    const materialObj = med.materials as { name?: string; mtno?: number };
+                    materials = [materialObj.name || materialObj.mtno || med.materials].filter(Boolean);
+                  } else {
+                    // 문자열이나 다른 타입인 경우
+                    materials = [med.materials].filter(Boolean);
+                  }
+                } catch (error) {
+                  console.error(`[PrescriptionDetailScreen] materials 파싱 오류 (${med.name}):`, error);
+                  materials = [];
+                }
+              }
+              
+              // materials를 warning 형식으로 변환
+              const warningItems = materials.map((m: any) => {
+                if (typeof m === 'object' && m !== null) {
+                  const materialObj = m as { name?: string };
+                  return materialObj.name || String(m);
+                }
+                return String(m);
+              }).filter(Boolean);
+              
+              const warning = warningItems.length > 0 ? {
+                title: '병용 섭취 주의',
+                items: warningItems,
+              } : undefined;
+              
+              // 개발 모드에서만 상세 로그 출력
+              if (__DEV__ && warning) {
+                console.log(`[PrescriptionDetailScreen] 약품: ${med.name} - 병용섭취 주의: ${warningItems.join(', ')}`);
+              }
+              
+              return {
+                mdno: med.mdno,
+                name: med.name,
+                classification: med.classification,
+                image: med.image,
+                description: med.description,
+                information: med.information,
+                audioUrl: med.audioUrl, // TTS 오디오 URL 추가
+                materials: materials,
+                warning: warning,
+              };
+            }),
           });
+          
+          console.log('설정된 약품 개수:', data.medicines?.length || 0);
         }
       } catch (error: any) {
         console.error('복약 상세 정보 조회 실패:', error);
@@ -102,12 +203,103 @@ export default function PrescriptionDetailScreen({ umno, onGoHome, onEditTime }:
     loadMedicationDetail();
   }, [umno]);
 
+  // 화면이 켜지면 모든 약품의 TTS를 순차적으로 재생
+  useEffect(() => {
+    if (prescriptionData && prescriptionData.medicines && prescriptionData.medicines.length > 0) {
+      const audioUrls = prescriptionData.medicines
+        .map(med => med.audioUrl)
+        .filter((url): url is string => !!url && url.trim().length > 0);
+      
+      if (audioUrls.length > 0) {
+        console.log(`[PrescriptionDetailScreen] ${audioUrls.length}개의 약품 TTS 순차 재생 시작`);
+        playSequentialAudio(audioUrls)
+          .then(() => {
+            console.log('[PrescriptionDetailScreen] 모든 약품 TTS 재생 완료');
+            setPlayingTtsMdno(null);
+          })
+          .catch(error => {
+            console.error('[PrescriptionDetailScreen] TTS 순차 재생 실패:', error);
+            setPlayingTtsMdno(null);
+          });
+      }
+    }
+
+    // 화면을 벗어나면 TTS 종료 (useEffect cleanup)
+    return () => {
+      console.log('[PrescriptionDetailScreen] useEffect cleanup - TTS 종료');
+      stopAudio();
+      setPlayingTtsMdno(null);
+    };
+  }, [prescriptionData]);
+
   const handleGoHome = () => {
+    console.log('[PrescriptionDetailScreen] 홈으로 이동 - TTS 종료');
+    stopAudio();
+    setPlayingTtsMdno(null);
     onGoHome?.();
   };
 
-  const handleEditTime = () => {
-    onEditTime?.();
+  const handleEditTime = async () => {
+    try {
+      // 이미 로드된 복약 상세 정보에서 comb 필드 사용
+      // comb는 "breakfast,lunch,dinner" 형식의 문자열
+      if (prescriptionData?.combination) {
+        const combString = prescriptionData.combination;
+        const timePeriods: string[] = [];
+        
+        // comb 문자열을 파싱하여 시간대 추출
+        const combParts = combString.split(',').map(part => part.trim().toLowerCase());
+        
+        // 각 시간대가 comb에 포함되어 있으면 배열에 추가
+        if (combParts.includes('breakfast') || combParts.includes('morning')) {
+          timePeriods.push('breakfast');
+        }
+        if (combParts.includes('lunch')) {
+          timePeriods.push('lunch');
+        }
+        if (combParts.includes('dinner') || combParts.includes('evening')) {
+          timePeriods.push('dinner');
+        }
+        if (combParts.includes('night') || combParts.includes('bedtime')) {
+          timePeriods.push('bedtime');
+        }
+        
+        // 시간대가 있으면 해당 시간대만 순차적으로 설정
+        if (timePeriods.length > 0) {
+          console.log(`[PrescriptionDetailScreen] 시간 수정 - 설정된 시간대: ${timePeriods.join(', ')}`);
+          onEditTime?.(timePeriods);
+        } else {
+          Alert.alert('알림', '설정된 복약 시간대가 없습니다.');
+        }
+      } else {
+        // comb 필드가 없으면 API 호출하여 조회
+        console.log('[PrescriptionDetailScreen] comb 필드가 없어 API 호출하여 조회');
+        const combinationResponse = await getMedicationCombination(umno);
+        if (combinationResponse.header?.resultCode === 1000 && combinationResponse.body) {
+          const combination = combinationResponse.body;
+          const timePeriods: string[] = [];
+          
+          // 각 시간대가 설정되어 있으면 배열에 추가
+          if (combination.breakfast > 0) timePeriods.push('breakfast');
+          if (combination.lunch > 0) timePeriods.push('lunch');
+          if (combination.dinner > 0) timePeriods.push('dinner');
+          if (combination.night > 0) timePeriods.push('bedtime');
+          
+          // 시간대가 있으면 해당 시간대만 순차적으로 설정
+          if (timePeriods.length > 0) {
+            console.log(`[PrescriptionDetailScreen] 시간 수정 (API 조회) - 설정된 시간대: ${timePeriods.join(', ')}`);
+            onEditTime?.(timePeriods);
+          } else {
+            Alert.alert('알림', '설정된 복약 시간대가 없습니다.');
+          }
+        } else {
+          Alert.alert('오류', '복약 시간 조합을 불러오는데 실패했습니다.');
+        }
+      }
+    } catch (error: any) {
+      console.error('복약 시간 조합 조회 실패:', error);
+      Alert.alert('오류', '복약 시간 조합을 불러오는데 실패했습니다.');
+    }
   };
 
   return (
@@ -127,8 +319,8 @@ export default function PrescriptionDetailScreen({ umno, onGoHome, onEditTime }:
           <Text style={styles.loadingText}>복약 정보 불러오는 중...</Text>
         </View>
       ) : prescriptionData ? (
-        <ScrollView
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + responsive(120) }]}
+        <PinchZoomScrollView
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + responsive(66) + responsive(16) + responsive(16) }]}
           showsVerticalScrollIndicator={false}
         >
           <View style={[styles.pageWrapper, { maxWidth: MAX_WIDTH }]}>
@@ -165,25 +357,30 @@ export default function PrescriptionDetailScreen({ umno, onGoHome, onEditTime }:
                 <View style={styles.medicationContentWrapper}>
                   <View style={styles.medicationItem}>
                     <View style={styles.medicationContent}>
-                      <View style={styles.medicationHeader}>
-                        <Text style={styles.medicationNumber}>#{index + 1}</Text>
-                        <View style={styles.medicationTypeTag}>
-                          <Text style={styles.medicationTypeText}>{medicine.classification}</Text>
+                      <View style={styles.medicationHeaderWithImage}>
+                        <View style={styles.medicationTextContainer}>
+                          <View style={styles.medicationHeader}>
+                            <Text style={styles.medicationNumber}>#{index + 1}</Text>
+                            <View style={styles.medicationTypeTag}>
+                              <Text style={styles.medicationTypeText}>{medicine.classification}</Text>
+                            </View>
+                          </View>
+                          <Text style={styles.medicationName}>{medicine.name}</Text>
+                        </View>
+                        {/* 약 이미지 - 오른쪽 상단 */}
+                        <View style={styles.medicationImageContainer}>
+                          <Image
+                            source={getMedicineImageSource(medicine.mdno)}
+                            style={styles.medicationImage}
+                            resizeMode="contain"
+                          />
                         </View>
                       </View>
-                      <Text style={styles.medicationName}>{medicine.name}</Text>
                     </View>
                   </View>
                   
-                  {/* 약 설명 */}
-                  {medicine.description && (
-                    <View style={styles.descriptionSection}>
-                      <Text style={styles.descriptionText}>{medicine.description}</Text>
-                    </View>
-                  )}
-                  
-                  {/* 병용 섭취 주의 */}
-                  {medicine.warning && (
+                  {/* 병용 섭취 주의 - 약 설명 위에 배치 */}
+                  {medicine.warning && medicine.warning.items && medicine.warning.items.length > 0 && (
                     <View style={styles.warningSection}>
                       <View style={styles.warningHeader}>
                         <Image
@@ -195,16 +392,60 @@ export default function PrescriptionDetailScreen({ umno, onGoHome, onEditTime }:
                       <Text style={styles.warningText}>{medicine.warning.items.join(', ')}</Text>
                     </View>
                   )}
+                  
+                  {/* 약 설명 */}
+                  {medicine.description && (
+                    <View style={styles.descriptionSection}>
+                      {/* TTS 재생 버튼 - 우상단 구석 */}
+                      {medicine.audioUrl && (
+                        <TouchableOpacity
+                          style={[
+                            styles.ttsButton,
+                            playingTtsMdno === medicine.mdno && styles.ttsButtonPlaying
+                          ]}
+                          onPress={async () => {
+                            // 다른 TTS가 재생 중이면 무조건 중지 (다른 약품이거나 순차 재생 중)
+                            // playBase64Audio 내부에서 자동으로 이전 TTS를 종료하지만,
+                            // 순차 재생 중일 수 있으므로 명시적으로 종료
+                            if (playingTtsMdno !== null) {
+                              await stopAudio();
+                            }
+                            
+                            // 현재 약품의 TTS 재생 (playBase64Audio가 자동으로 이전 TTS 종료)
+                            setPlayingTtsMdno(medicine.mdno);
+                            const success = await playBase64Audio(medicine.audioUrl!, () => {
+                              // 재생 완료 시 상태 초기화
+                              setPlayingTtsMdno(null);
+                            });
+                            
+                            if (!success) {
+                              setPlayingTtsMdno(null);
+                            }
+                          }}
+                        >
+                          <Text style={styles.ttsButtonText}>
+                            {playingTtsMdno === medicine.mdno ? '🔊' : '🔊'}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                      <Text style={styles.descriptionText}>{medicine.description}</Text>
+                    </View>
+                  )}
                 </View>
               </View>
               ))}
             </View>
           </View>
-        </ScrollView>
+        </PinchZoomScrollView>
       ) : null}
 
-      {/* 하단 고정 버튼 */}
-      <View style={[styles.buttonContainer, { bottom: insets.bottom + responsive(36) }]}>
+      {/* 하단 전체를 덮는 그라데이션 (버튼 포함!) */}
+      <View style={[styles.bottomFadeContainer, { paddingBottom: insets.bottom + responsive(16) }]}>
+        <LinearGradient
+          colors={['transparent', '#F6F7F8']}
+          style={styles.gradient}
+        />
+        {/* 버튼은 그라데이션 내부에 배치 */}
         <TouchableOpacity 
           style={[styles.submitButton, { maxWidth: MAX_WIDTH }]}
           onPress={handleGoHome}
@@ -325,6 +566,15 @@ const styles = StyleSheet.create({
   medicationContent: {
     flex: 1,
   },
+  medicationHeaderWithImage: {
+    flexDirection: 'row' as any,
+    alignItems: 'flex-start' as any,
+    justifyContent: 'space-between' as any,
+  },
+  medicationTextContainer: {
+    flex: 1,
+    marginRight: responsive(12),
+  },
   medicationHeader: {
     flexDirection: 'row' as any,
     alignItems: 'center' as any,
@@ -355,17 +605,52 @@ const styles = StyleSheet.create({
     color: '#364153',
     lineHeight: responsive(24),
   },
+  medicationImageContainer: {
+    width: responsive(60),
+    height: responsive(60),
+    borderRadius: responsive(8),
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center' as any,
+    alignItems: 'center' as any,
+    marginLeft: responsive(12),
+  },
+  medicationImage: {
+    width: responsive(60),
+    height: responsive(60),
+    borderRadius: responsive(8),
+  },
+  ttsButton: {
+    position: 'absolute' as any,
+    top: responsive(8),
+    right: responsive(8),
+    width: responsive(20),
+    height: responsive(20),
+    borderRadius: responsive(10),
+    backgroundColor: '#60584D',
+    alignItems: 'center' as any,
+    justifyContent: 'center' as any,
+    zIndex: 10,
+  },
+  ttsButtonPlaying: {
+    backgroundColor: '#8B8268',
+  },
+  ttsButtonText: {
+    fontSize: responsive(12),
+    color: '#FFFFFF',
+  },
   descriptionSection: {
     backgroundColor: '#F9FAFB',
     borderRadius: responsive(4),
     padding: responsive(8),
     marginBottom: responsive(8),
+    position: 'relative' as any,
   },
   descriptionText: {
     fontSize: responsive(14),
     fontWeight: '400' as any,
     color: '#364153',
     lineHeight: responsive(20),
+    paddingRight: responsive(32), // 스피커 버튼 공간 확보 (버튼 너비 20 + 여백 12)
   },
   warningSection: {
     backgroundColor: '#FFF9E6',
@@ -394,19 +679,30 @@ const styles = StyleSheet.create({
     fontWeight: '400' as any,
     color: '#92400E',
   },
-  buttonContainer: {
-    position: 'absolute' as any,
-    left: responsive(16),
-    right: responsive(16),
+  bottomFadeContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingTop: responsive(32),
     alignItems: 'center' as any,
+    zIndex: 10,
+  },
+  gradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    top: 0,
   },
   submitButton: {
-    width: '100%',
+    width: '90%',
     height: responsive(66),
     backgroundColor: '#60584d',
     borderRadius: responsive(200),
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
+    zIndex: 20,
   },
   submitButtonText: {
     fontSize: responsive(27),

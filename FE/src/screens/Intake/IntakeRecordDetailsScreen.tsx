@@ -8,11 +8,16 @@ import {
   useWindowDimensions,
   InteractionManager,
   StatusBar,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
 import Svg, { Circle } from 'react-native-svg';
 import responsive from '../../utils/responsive';
+import { getReportDetail } from '../../api/reportApi';
+import { getMedicineImageSource } from '../../utils/medicineImageMap';
 
 
 // 원형 진행률 그래프 컴포넌트
@@ -58,14 +63,42 @@ const CircularProgress = ({ percentage }: { percentage: number }) => {
 
 interface IntakeRecordDetailsScreenProps {
   onExit?: () => void;
+  rno?: number;
 }
 
-const IntakeRecordDetailsScreen = React.memo(({ onExit }: IntakeRecordDetailsScreenProps) => {
+const IntakeRecordDetailsScreen = React.memo(({ onExit, rno }: IntakeRecordDetailsScreenProps) => {
   const [isInteractionComplete, setIsInteractionComplete] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [reportData, setReportData] = useState<any>(null);
   const { width } = useWindowDimensions();
   const isTablet = width > 600;
   const MAX_WIDTH = responsive(isTablet ? 420 : 360);
   const insets = useSafeAreaInsets();
+
+  // 리포트 상세 데이터 로드
+  useEffect(() => {
+    if (!rno) {
+      setIsLoading(false);
+      return;
+    }
+
+    const loadReportDetail = async () => {
+      try {
+        setIsLoading(true);
+        const response = await getReportDetail(rno);
+        if (response.header?.resultCode === 1000 && response.body) {
+          setReportData(response.body);
+        }
+      } catch (error: any) {
+        console.error('리포트 상세 로드 실패:', error);
+        Alert.alert('오류', '리포트 상세 정보를 불러오는데 실패했습니다.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadReportDetail();
+  }, [rno]);
 
   // 화면 전환 애니메이션 이후에 실행
   useEffect(() => {
@@ -92,162 +125,185 @@ const IntakeRecordDetailsScreen = React.memo(({ onExit }: IntakeRecordDetailsScr
         </View>
       </View>
 
-      <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + responsive(20) }]}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={[styles.pageWrapper, { maxWidth: MAX_WIDTH }]}>
-          {/* 약 정보 섹션 */}
-          <View style={styles.medicineInfoSection}>
-            {/* 복통약 태그 */}
-            <View style={styles.medicineTag}>
-              <Text style={styles.medicineTagText}>복통약</Text>
-            </View>
-
-            {/* 병원 정보 */}
-            <Text style={styles.hospitalInfo}>가람병원 - 1일 3회</Text>
-            
-            {/* 날짜 정보 */}
-            <Text style={styles.dateText}>2025년 10월 14일 - 2025년 10월 25일</Text>
-          </View>
-
-          {/* 진행률 카드 */}
-          <View style={styles.progressCard}>
-            <View style={styles.progressContent}>
-              {/* 진행률 원형 차트 */}
-              <View style={styles.progressCircleWrapper}>
-                <Text style={styles.progressLabel}>진행률</Text>
-                <CircularProgress percentage={60} />
-              </View>
-
-              {/* 통계 정보 */}
-              <View style={styles.statsContainer}>
-                <View style={styles.statItem}>
-                  <Text style={styles.statLabel}>총 복용 횟수</Text>
-                  <Text style={styles.statValue}>15회</Text>
-                </View>
-                <View style={styles.statItem}>
-                  <Text style={styles.statLabel}>현재 복용 회차</Text>
-                  <Text style={styles.statValue}>9회</Text>
-                </View>
-                <View style={styles.statItem}>
-                  <Text style={styles.statLabel}>실 복용 횟수</Text>
-                  <Text style={styles.statValue}>7회</Text>
-                </View>
-              </View>
-            </View>
-          </View>
-
-          {/* 약 카드 섹션 */}
-          <View style={styles.medicationCard}>
-            {/* 약 #1 */}
-            <View style={styles.medicationItemWrapper}>
-              <View style={styles.medicationLeftBar} />
-              <View style={styles.medicationContentWrapper}>
-                <View style={styles.medicationItem}>
-                  <View style={styles.medicationContent}>
-                    <View style={styles.medicationHeader}>
-                      <Text style={styles.medicationNumber}>#1</Text>
-                      <View style={styles.medicationTypeTag}>
-                        <Text style={styles.medicationTypeText}>소염진통제</Text>
-                      </View>
-                    </View>
-                    <Text style={styles.medicationName}>이부프로펜 200mg</Text>
-                  </View>
-                </View>
-                
-                {/* 약 설명 */}
-                <View style={styles.medicationDescription}>
-                  <Text style={styles.medicationDescriptionText}>
-                    💊 두통, 복통, 설사가 나타날 수 있습니다
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            {/* 약 #2 */}
-            <View style={styles.medicationItemWrapper}>
-              <View style={styles.medicationLeftBar} />
-              <View style={styles.medicationContentWrapper}>
-                <View style={styles.medicationItem}>
-                  <View style={styles.medicationContent}>
-                    <View style={styles.medicationHeader}>
-                      <Text style={styles.medicationNumber}>#2</Text>
-                      <View style={styles.medicationTypeTag}>
-                        <Text style={styles.medicationTypeText}>소염진통제</Text>
-                      </View>
-                    </View>
-                    <Text style={styles.medicationName}>이프로펜 200mg</Text>
-                  </View>
-                </View>
-                
-                {/* 약 설명 */}
-                <View style={styles.medicationDescription}>
-                  <Text style={styles.medicationDescriptionText}>
-                    💊 두통, 복통, 설사가 나타날 수 있습니다
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </View>
-
-          {/* 부작용 기록 카드 */}
-          <View style={styles.sideEffectCard}>
-            <View style={styles.sideEffectSection}>
-              {/* 1주차 */}
-              <View style={styles.sideEffectItem}>
-                <Text style={styles.sideEffectWeek}>1주차 부작용</Text>
-                <View style={styles.sideEffectContent}>
-                  <Text style={styles.sideEffectText}>입마름, 두통(3회)</Text>
-                </View>
-              </View>
-
-              <View style={styles.sideEffectDivider} />
-
-              {/* 2주차 */}
-              <View style={styles.sideEffectItem}>
-                <Text style={styles.sideEffectWeek}>2주차 부작용</Text>
-                <View style={styles.sideEffectContent}>
-                  <Text style={styles.sideEffectText}>입마름, 두통(3회)</Text>
-                </View>
-              </View>
-
-              <View style={styles.sideEffectDivider} />
-
-              {/* 3주차 */}
-              <View style={styles.sideEffectItem}>
-                <Text style={styles.sideEffectWeek}>3주차 부작용</Text>
-                <View style={styles.sideEffectContent}>
-                  <Text style={styles.sideEffectText}>입마름, 두통(3회)</Text>
-                </View>
-              </View>
-            </View>
-          </View>
-
-          {/* 총평 카드 */}
-          <View style={styles.summaryCard}>
-            <View style={styles.summaryHeader}>
-              <View style={styles.summaryLogo}>
-                <Image
-                  source={require('../../../assets/images/PillImage.png')}
-                  style={styles.summaryLogoImage}
-                  contentFit="contain"
-                />
-              </View>
-              <Text style={styles.summaryTitle}>총평</Text>
-            </View>
-            <Text style={styles.summaryText}>
-              약을 잊지 않고 잘 챙겨드셨네요!{'\n'}
-              복약 점수가 80점으로 아주 좋습니다.{'\n'}
-              남은 기간도 꾸준히 복용하면 몸이 한결 편해질 거예요.{'\n'}
-              혹시 두통이나 입마름이 계속된다면 의사나 약사에게 꼭 말씀해주세요.
-            </Text>
-          </View>
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#60584d" />
+          <Text style={styles.loadingText}>리포트 상세 정보 불러오는 중...</Text>
         </View>
-      </ScrollView>
+      ) : reportData ? (
+        <ScrollView
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + responsive(66) + responsive(16) + responsive(16) }]}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={[styles.pageWrapper, { maxWidth: MAX_WIDTH }]}>
+            {/* 약 정보 섹션 */}
+            <View style={styles.medicineInfoSection}>
+              {/* 카테고리 태그 */}
+              <View style={styles.medicineTag}>
+                <Text style={styles.medicineTagText}>{reportData.category}</Text>
+              </View>
 
-      {/* 하단 고정 버튼 */}
-      <View style={styles.exitButtonContainer}>
+              {/* 병원 정보 */}
+              <Text style={styles.hospitalInfo}>{reportData.hospital} - 1일 {reportData.taken}회</Text>
+              
+              {/* 날짜 정보 */}
+              {reportData.cycle && reportData.cycle.length > 0 && (
+                <Text style={styles.dateText}>
+                  {reportData.cycle[0].start_date} - {reportData.cycle[0].end_date}
+                </Text>
+              )}
+            </View>
+
+            {/* 진행률 카드 */}
+            {reportData.cycle && reportData.cycle.length > 0 && (
+              <View style={styles.progressCard}>
+                <View style={styles.progressContent}>
+                  {/* 진행률 원형 차트 */}
+                  <View style={styles.progressCircleWrapper}>
+                    <Text style={styles.progressLabel}>진행률</Text>
+                    <CircularProgress 
+                      percentage={reportData.cycle[0].save_cycle && reportData.cycle[0].cur_cycle 
+                        ? Math.round((reportData.cycle[0].save_cycle / reportData.cycle[0].cur_cycle) * 100)
+                        : 0} 
+                    />
+                  </View>
+
+                  {/* 통계 정보 */}
+                  <View style={styles.statsContainer}>
+                    <View style={styles.statItem}>
+                      <Text style={styles.statLabel}>총 복용 횟수</Text>
+                      <Text style={styles.statValue}>{reportData.cycle[0].total_cycle || 0}회</Text>
+                    </View>
+                    <View style={styles.statItem}>
+                      <Text style={styles.statLabel}>현재 복용 회차</Text>
+                      <Text style={styles.statValue}>{reportData.cycle[0].cur_cycle || 0}회</Text>
+                    </View>
+                    <View style={styles.statItem}>
+                      <Text style={styles.statLabel}>실 복용 횟수</Text>
+                      <Text style={styles.statValue}>{reportData.cycle[0].save_cycle || 0}회</Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {/* 약 카드 섹션 */}
+            {reportData.medicine && reportData.medicine.length > 0 && (
+              <View style={styles.medicationCard}>
+                {reportData.medicine.map((med: any, index: number) => (
+                  <View key={med.mdno} style={styles.medicationItemWrapper}>
+                    <View style={styles.medicationLeftBar} />
+                    <View style={styles.medicationContentWrapper}>
+                      <View style={styles.medicationItem}>
+                        <View style={styles.medicationContent}>
+                          <View style={styles.medicationHeaderWithImage}>
+                            <View style={styles.medicationTextContainer}>
+                              <View style={styles.medicationHeader}>
+                                <Text style={styles.medicationNumber}>#{index + 1}</Text>
+                                <View style={styles.medicationTypeTag}>
+                                  <Text style={styles.medicationTypeText}>{med.classification}</Text>
+                                </View>
+                              </View>
+                              <Text style={styles.medicationName}>{med.name}</Text>
+                            </View>
+                            {/* 약 이미지 - 오른쪽 상단 */}
+                            <View style={styles.medicationImageContainer}>
+                              <Image
+                                source={getMedicineImageSource(med.mdno)}
+                                style={styles.medicationImage}
+                                resizeMode="contain"
+                              />
+                            </View>
+                          </View>
+                        </View>
+                      </View>
+                      
+                      {/* 약 설명 */}
+                      {med.information && (
+                        <View style={styles.descriptionSection}>
+                          <Text style={styles.descriptionText}>{med.information}</Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* 부작용 기록 카드 */}
+            {reportData.effects && reportData.effects.length > 0 && (
+              <View style={styles.sideEffectCard}>
+                <View style={styles.sideEffectSection}>
+                  {reportData.effects.map((weekEffect: any, index: number) => (
+                    <React.Fragment key={weekEffect.week}>
+                      <View style={styles.sideEffectItem}>
+                        <Text style={styles.sideEffectWeek}>{weekEffect.week}주차 부작용</Text>
+                        <View style={styles.sideEffectContent}>
+                          <Text style={styles.sideEffectText}>
+                            {weekEffect.effect_list.map((eff: any) => `${eff.name}(${eff.count}회)`).join(', ')}
+                          </Text>
+                        </View>
+                      </View>
+                      {index < reportData.effects.length - 1 && <View style={styles.sideEffectDivider} />}
+                    </React.Fragment>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {/* 총평 카드 */}
+            {/* 사이클 종료일 다음 날 이후에만 총평 표시 (백엔드에서 자동 생성) */}
+            {reportData.description && reportData.description.trim() !== '' && (
+              <View style={styles.summaryCard}>
+                <View style={styles.summaryHeader}>
+                  <View style={styles.summaryLogo}>
+                    <Image
+                      source={require('../../../assets/images/PillImage.png')}
+                      style={styles.summaryLogoImage}
+                      contentFit="contain"
+                    />
+                  </View>
+                  <Text style={styles.summaryTitle}>총평</Text>
+                </View>
+                <Text style={styles.summaryText}>{reportData.description}</Text>
+              </View>
+            )}
+            
+            {/* 사이클이 아직 진행 중인 경우 안내 메시지 */}
+            {reportData.cycle && reportData.cycle.length > 0 && 
+             (!reportData.description || reportData.description.trim() === '') && (
+              <View style={styles.summaryCard}>
+                <View style={styles.summaryHeader}>
+                  <View style={styles.summaryLogo}>
+                    <Image
+                      source={require('../../../assets/images/PillImage.png')}
+                      style={styles.summaryLogoImage}
+                      contentFit="contain"
+                    />
+                  </View>
+                  <Text style={styles.summaryTitle}>총평</Text>
+                </View>
+                <Text style={styles.summaryText}>
+                  복약 기간이 종료된 후 총평이 생성됩니다.{'\n'}
+                  (종료일: {reportData.cycle[0].end_date})
+                </Text>
+              </View>
+            )}
+          </View>
+        </ScrollView>
+      ) : (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>리포트 정보를 불러올 수 없습니다.</Text>
+        </View>
+      )}
+
+      {/* 하단 전체를 덮는 그라데이션 (버튼 포함!) */}
+      <View style={[styles.bottomFadeContainer, { paddingBottom: insets.bottom + responsive(16) }]}>
+        <LinearGradient
+          colors={['transparent', '#F6F7F8']}
+          style={styles.gradient}
+        />
+        {/* 버튼은 그라데이션 내부에 배치 */}
         <TouchableOpacity style={styles.exitButton} onPress={handleExit}>
           <Text style={styles.exitButtonText}>나가기</Text>
         </TouchableOpacity>
@@ -420,6 +476,15 @@ const styles = StyleSheet.create({
   medicationContent: {
     flex: 1,
   },
+  medicationHeaderWithImage: {
+    flexDirection: 'row' as any,
+    alignItems: 'flex-start' as any,
+    justifyContent: 'space-between' as any,
+  },
+  medicationTextContainer: {
+    flex: 1,
+    marginRight: responsive(12),
+  },
   medicationHeader: {
     flexDirection: 'row' as any,
     alignItems: 'center' as any,
@@ -446,9 +511,35 @@ const styles = StyleSheet.create({
   },
   medicationName: {
     fontWeight: '700' as '700',
-    fontSize: responsive(18),
-    color: '#60584D',
+    fontSize: responsive(20),
+    color: '#364153',
     lineHeight: responsive(24),
+  },
+  medicationImageContainer: {
+    width: responsive(60),
+    height: responsive(60),
+    borderRadius: responsive(8),
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center' as any,
+    alignItems: 'center' as any,
+    marginLeft: responsive(12),
+  },
+  medicationImage: {
+    width: responsive(60),
+    height: responsive(60),
+    borderRadius: responsive(8),
+  },
+  descriptionSection: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: responsive(4),
+    padding: responsive(8),
+    marginBottom: responsive(8),
+  },
+  descriptionText: {
+    fontSize: responsive(14),
+    fontWeight: '400' as '400',
+    color: '#364153',
+    lineHeight: responsive(20),
   },
   medicationDescription: {
     backgroundColor: '#F9FAFB',
@@ -539,27 +630,58 @@ const styles = StyleSheet.create({
     color: '#141313',
     lineHeight: responsive(20),
   },
-  exitButtonContainer: {
+  bottomFadeContainer: {
     position: 'absolute',
-    left: responsive(16),
-    right: responsive(16),
-    bottom: responsive(36),
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingTop: responsive(32),
     alignItems: 'center' as any,
+    zIndex: 10,
+  },
+  gradient: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    top: 0,
   },
   exitButton: {
-    width: '100%',
+    width: '90%',
     maxWidth: responsive(360),
     height: responsive(66),
     backgroundColor: '#60584D',
     borderRadius: responsive(200),
     justifyContent: 'center' as any,
     alignItems: 'center' as any,
+    zIndex: 20,
   },
   exitButtonText: {
     fontWeight: '700' as '700',
     fontSize: responsive(27),
     color: '#FFFFFF',
     lineHeight: responsive(32.4),
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center' as any,
+    justifyContent: 'center' as any,
+    paddingVertical: responsive(40),
+  },
+  loadingText: {
+    marginTop: responsive(12),
+    fontSize: responsive(18),
+    color: '#99a1af',
+  },
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center' as any,
+    justifyContent: 'center' as any,
+    paddingVertical: responsive(40),
+  },
+  emptyText: {
+    fontSize: responsive(18),
+    color: '#99a1af',
   },
 });
 

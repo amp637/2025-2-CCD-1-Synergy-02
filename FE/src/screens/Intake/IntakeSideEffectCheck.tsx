@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,13 +7,19 @@ import {
   ScrollView,
   useWindowDimensions,
   Image,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import responsive from '../../utils/responsive';
+import { createCondition } from '../../api/conditionApi';
+import { getSideEffectPresets } from '../../api/presetApi';
+import PinchZoomScrollView from '../../components/PinchZoomScrollView';
 
 interface SideEffect {
   id: string;
+  efno: number;
   name: string;
   icon: any;
 }
@@ -22,16 +28,16 @@ interface IntakeSideEffectCheckProps {
   onComplete?: () => void;
 }
 
-const sideEffects: SideEffect[] = [
-  { id: 'indigestion', name: '소화불량, 속쓰림', icon: require('../../../assets/images/IndigestionHeartburn.png') },
-  { id: 'constipation', name: '변비, 소변불편', icon: require('../../../assets/images/ConstipationUrinationDifficulty.png') },
-  { id: 'drowsiness', name: '졸림, 진정작용', icon: require('../../../assets/images/DrowsinessSedation.png') },
-  { id: 'fatigue', name: '피로감', icon: require('../../../assets/images/Fatigue.png') },
-  { id: 'dizziness', name: '어지러움', icon: require('../../../assets/images/Dizziness.png') },
-  { id: 'swelling', name: '부종', icon: require('../../../assets/images/SwellingEdema.png') },
-  { id: 'dryMouth', name: '입마름', icon: require('../../../assets/images/DryMouth.png') },
-  { id: 'none', name: '부작용\n없음', icon: null },
-];
+// 아이콘 매핑
+const iconMap: { [key: string]: any } = {
+  '소화불량, 속쓰림': require('../../../assets/images/IndigestionHeartburn.png'),
+  '변비, 소변불편': require('../../../assets/images/ConstipationUrinationDifficulty.png'),
+  '졸림, 진정작용': require('../../../assets/images/DrowsinessSedation.png'),
+  '피로감': require('../../../assets/images/Fatigue.png'),
+  '어지러움': require('../../../assets/images/Dizziness.png'),
+  '부종': require('../../../assets/images/SwellingEdema.png'),
+  '입마름': require('../../../assets/images/DryMouth.png'),
+};
 
 export default function IntakeSideEffectCheck({ onComplete }: IntakeSideEffectCheckProps) {
   const { width } = useWindowDimensions();
@@ -39,7 +45,37 @@ export default function IntakeSideEffectCheck({ onComplete }: IntakeSideEffectCh
   const MAX_WIDTH = responsive(isTablet ? 420 : 360);
   const insets = useSafeAreaInsets();
 
+  const [sideEffects, setSideEffects] = useState<SideEffect[]>([]);
   const [selectedEffects, setSelectedEffects] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // 부작용 프리셋 로드
+  useEffect(() => {
+    const loadSideEffectPresets = async () => {
+      try {
+        setIsLoading(true);
+        const response = await getSideEffectPresets();
+        if (response.header?.resultCode === 1000 && response.body?.effects) {
+          const effects: SideEffect[] = response.body.effects.map((preset) => ({
+            id: preset.efno.toString(),
+            efno: preset.efno,
+            name: preset.name,
+            icon: iconMap[preset.name] || null,
+          }));
+          // 부작용 없음 추가
+          effects.push({ id: 'none', efno: 0, name: '부작용\n없음', icon: null });
+          setSideEffects(effects);
+        }
+      } catch (error: any) {
+        console.error('부작용 프리셋 로드 실패:', error);
+        Alert.alert('오류', '부작용 목록을 불러오는데 실패했습니다.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadSideEffectPresets();
+  }, []);
 
   const isNextButtonActive = selectedEffects.length > 0;
 
@@ -63,10 +99,71 @@ export default function IntakeSideEffectCheck({ onComplete }: IntakeSideEffectCh
     }
   };
 
-  const handleNext = () => {
-    if (isNextButtonActive) {
-      console.log('선택된 부작용:', selectedEffects);
-      onComplete?.();
+  const handleNext = async () => {
+    if (!isNextButtonActive || isSubmitting) return;
+
+    try {
+      setIsSubmitting(true);
+      
+      console.log('[IntakeSideEffectCheck] 선택 완료 버튼 클릭');
+      console.log('[IntakeSideEffectCheck] 선택된 부작용:', selectedEffects);
+      
+      // 부작용 없음을 선택한 경우 빈 배열 전송
+      const effectIds = selectedEffects.includes('none') 
+        ? [] 
+        : selectedEffects.map(id => {
+            const effect = sideEffects.find(e => e.id === id);
+            return effect?.efno || 0;
+          }).filter(efno => efno > 0);
+
+      console.log('[IntakeSideEffectCheck] 전송할 effectIds:', effectIds);
+      console.log(`[IntakeSideEffectCheck] createCondition 호출 시작`);
+      
+      const response = await createCondition(effectIds);
+      
+      console.log('[IntakeSideEffectCheck] createCondition 응답:', {
+        resultCode: response.header?.resultCode,
+        resultMsg: response.header?.resultMsg,
+        body: response.body
+      });
+      
+      if (response.header?.resultCode === 1000) {
+        console.log('[IntakeSideEffectCheck] ✅ 부작용 저장 성공');
+        onComplete?.();
+      } else {
+        const errorMsg = response.header?.resultMsg || '부작용 저장에 실패했습니다.';
+        console.error(`[IntakeSideEffectCheck] ❌ resultCode가 1000이 아님: ${response.header?.resultCode}, 메시지: ${errorMsg}`);
+        throw new Error(errorMsg);
+      }
+    } catch (error: any) {
+      console.error('=== [IntakeSideEffectCheck] 부작용 저장 실패 ===');
+      console.error('에러 타입:', error.constructor.name);
+      console.error('에러 메시지:', error.message);
+      
+      if (error.response) {
+        console.error('응답 상태:', error.response.status);
+        console.error('응답 데이터:', JSON.stringify(error.response.data, null, 2));
+      }
+      
+      const errorMessage = error.response?.data?.header?.resultMsg 
+        || error.response?.data?.message 
+        || error.message 
+        || '부작용 저장 중 오류가 발생했습니다.';
+      
+      Alert.alert(
+        '저장 실패',
+        `${errorMessage}\n\n에러 코드: ${error.response?.status || 'N/A'}`,
+        [
+          {
+            text: '확인',
+            onPress: () => {
+              // 에러가 발생해도 화면은 유지 (사용자가 다시 시도할 수 있도록)
+            }
+          }
+        ]
+      );
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -81,14 +178,20 @@ export default function IntakeSideEffectCheck({ onComplete }: IntakeSideEffectCh
         </View>
       </View>
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={[styles.pageWrapper, { maxWidth: MAX_WIDTH }]}>
-          {/* 부작용 버튼 그리드 */}
-          <View style={styles.effectButtonsContainer}>
-            {sideEffects.map((effect) => {
+      {isLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#60584d" />
+          <Text style={styles.loadingText}>부작용 목록 불러오는 중...</Text>
+        </View>
+      ) : (
+        <PinchZoomScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={[styles.pageWrapper, { maxWidth: MAX_WIDTH }]}>
+            {/* 부작용 버튼 그리드 */}
+            <View style={styles.effectButtonsContainer}>
+              {sideEffects.map((effect) => {
               const isSelected = selectedEffects.includes(effect.id);
               return (
                 <TouchableOpacity
@@ -132,27 +235,32 @@ export default function IntakeSideEffectCheck({ onComplete }: IntakeSideEffectCh
               );
             })}
           </View>
-        </View>
-      </ScrollView>
+          </View>
+        </PinchZoomScrollView>
+      )}
 
       {/* 선택 완료 버튼 */}
       <View style={styles.buttonContainer}>
         <TouchableOpacity
           style={[
             styles.nextButton,
-            isNextButtonActive ? styles.nextButtonActive : styles.nextButtonInactive,
+            isNextButtonActive && !isSubmitting ? styles.nextButtonActive : styles.nextButtonInactive,
           ]}
           onPress={handleNext}
-          disabled={!isNextButtonActive}
+          disabled={!isNextButtonActive || isSubmitting}
         >
-          <Text
-            style={[
-              styles.nextButtonText,
-              isNextButtonActive ? styles.nextButtonTextActive : styles.nextButtonTextInactive,
-            ]}
-          >
-            선택 완료
-          </Text>
+          {isSubmitting ? (
+            <ActivityIndicator color="#ffffff" size="small" />
+          ) : (
+            <Text
+              style={[
+                styles.nextButtonText,
+                isNextButtonActive && !isSubmitting ? styles.nextButtonTextActive : styles.nextButtonTextInactive,
+              ]}
+            >
+              선택 완료
+            </Text>
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -286,6 +394,17 @@ const styles = StyleSheet.create({
   },
   nextButtonTextInactive: {
     color: '#ffffff',
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center' as any,
+    justifyContent: 'center' as any,
+    paddingVertical: responsive(40),
+  },
+  loadingText: {
+    marginTop: responsive(12),
+    fontSize: responsive(18),
+    color: '#99a1af',
   },
 });
 

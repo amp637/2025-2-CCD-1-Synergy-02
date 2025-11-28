@@ -10,6 +10,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import responsive from '../../utils/responsive';
+import PinchZoomScrollView from '../../components/PinchZoomScrollView';
 
 // 처방전 데이터 타입
 interface Medication {
@@ -39,12 +40,35 @@ export default function HomeScreen({
 }: HomeScreenProps) {
   const hasMedications = medications.length > 0;
 
+  // 날짜 포맷팅 함수 (YYYY-MM-DD -> YYYY년 MM월 DD일)
+  const formatDate = (dateString: string): string => {
+    if (!dateString) return '';
+    
+    try {
+      // YYYY-MM-DD 형식 파싱
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        // 날짜 파싱 실패 시 원본 반환
+        return dateString;
+      }
+      
+      const year = date.getFullYear();
+      const month = date.getMonth() + 1;
+      const day = date.getDate();
+      
+      return `${year}년 ${month}월 ${day}일`;
+    } catch (error) {
+      console.error('날짜 포맷팅 오류:', error);
+      return dateString;
+    }
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
       
       {/* Main Content */}
-      <ScrollView 
+      <PinchZoomScrollView 
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -179,8 +203,8 @@ export default function HomeScreen({
                     <Text style={styles.hospitalText}>
                       {medication.hospital} - 1일 {medication.frequency}회
                     </Text>
-                    {/* 날짜 */}
-                    <Text style={styles.dateInfoText}>{medication.startDate}</Text>
+                    {/* 날짜 (생성일 기준) */}
+                    <Text style={styles.dateInfoText}>{formatDate(medication.startDate)}</Text>
                   </View>
                   
                   {/* 오른쪽 화살표 아이콘 */}
@@ -192,7 +216,7 @@ export default function HomeScreen({
             ))}
           </View>
         )}
-      </ScrollView>
+      </PinchZoomScrollView>
     </View>
   );
 }

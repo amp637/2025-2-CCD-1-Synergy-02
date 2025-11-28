@@ -6,7 +6,6 @@
     "orientation": "portrait",
     "icon": "./assets/images/main_icon/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": false,
     "jsEngine": "jsc",
     "splash": {
       "image": "./assets/images/main_icon/icon.png",
@@ -22,7 +21,14 @@
         "backgroundColor": "#FFCC02"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.synergy_dgu.bokjaapp"
+      "package": "com.synergy_dgu.bokjaapp",
+      "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_MEDIA_IMAGES",
+        "CAMERA"
+      ]
     },
     "web": {
       "favicon": "./assets/images/main_icon/icon.png"
@@ -33,7 +39,7 @@
     "extra": {
       "eas": {
         "projectId": "e1978ac7-7d67-45fa-bf17-72f7e988c73e"
-      }
+        }
     }
   }
 }

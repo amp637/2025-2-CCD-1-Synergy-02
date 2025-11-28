@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
+import { Audio } from 'expo-av';
 import { CallButton } from '../../components/CallButtons';
 import responsive from '../../utils/responsive';
 
@@ -25,6 +26,60 @@ export const IncomingCallScreen = React.memo(({
   const isTablet = width > 600;
   const MAX_WIDTH = isTablet ? 420 : 360;
   const [isInteractionComplete, setIsInteractionComplete] = useState(false);
+  const soundRef = React.useRef<Audio.Sound | null>(null);
+
+  // 배경음악 재생 (랜덤 선택)
+  useEffect(() => {
+    let isMounted = true;
+    
+    const playBackgroundMusic = async () => {
+      try {
+        // 랜덤하게 music1 또는 music2 선택
+        const musicNumber = Math.random() < 0.5 ? 1 : 2;
+        const musicSource = musicNumber === 1 
+          ? require('../../../assets/music/music1.mp3')
+          : require('../../../assets/music/music2.mp3');
+        
+        console.log(`[IncomingCallScreen] 배경음악 재생 시작: music${musicNumber}.mp3`);
+        
+        // 오디오 모드 설정 (다른 오디오와 함께 재생 가능하도록)
+        await Audio.setAudioModeAsync({
+          playsInSilentModeIOS: true,
+          staysActiveInBackground: false,
+        });
+        
+        // 오디오 로드 및 재생
+        const { sound: audioSound } = await Audio.Sound.createAsync(
+          musicSource,
+          { 
+            shouldPlay: true,
+            isLooping: true, // 반복 재생
+            volume: 0.5, // 볼륨 50%
+          }
+        );
+        
+        if (isMounted) {
+          soundRef.current = audioSound;
+          console.log('[IncomingCallScreen] 배경음악 재생 성공');
+        } else {
+          // 컴포넌트가 언마운트된 경우 즉시 정리
+          audioSound.unloadAsync();
+        }
+      } catch (error) {
+        console.error('[IncomingCallScreen] 배경음악 재생 실패:', error);
+      }
+    };
+    
+    playBackgroundMusic();
+    
+    return () => {
+      isMounted = false;
+      if (soundRef.current) {
+        soundRef.current.unloadAsync().catch(console.error);
+        soundRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const interactionPromise = InteractionManager.runAfterInteractions(() => {
