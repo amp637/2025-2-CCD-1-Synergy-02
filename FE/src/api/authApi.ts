@@ -1,12 +1,12 @@
 import { api, API_BASE_URL } from './api';
 import { BaseResponse } from './types';
 
-// 회원가입 요청 타입 (백엔드 UserSignupRequestDTO와 일치)
+// 회원가입 요청 타입 (백엔드 Swagger SignUpRequest 스펙과 일치)
 export interface SignUpRequest {
   name: string;
   birth: string; // 백엔드는 "birth" 필드명 사용, LocalDate 타입 (YYYY-MM-DD 형식)
-  phone: string; // 백엔드 DTO: phone
-  fcmToken: string; // 백엔드 DTO: fcmToken
+  call: string; // 백엔드 스펙: call (전화번호, 하이픈 제거된 숫자만)
+  fcm: string; // 백엔드 스펙: fcm (FCM 디바이스 토큰)
 }
 
 // 회원가입 응답 데이터 타입
@@ -31,7 +31,7 @@ export const signUp = async (signUpData: SignUpRequest): Promise<BaseResponse<Us
   console.log('📍 함수 호출 시간:', new Date().toISOString());
   console.log('📍 요청할 URL: POST', API_BASE_URL + '/users');
   console.log('📍 요청 데이터:', JSON.stringify(signUpData, null, 2));
-  console.log('📍 FCM 토큰 길이:', signUpData.fcmToken?.length || 0);
+  console.log('📍 FCM 토큰 길이:', signUpData.fcm?.length || 0);
   
   try {
     // 백엔드 엔드포인트: POST /users
