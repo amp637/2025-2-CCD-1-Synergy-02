@@ -99,7 +99,7 @@ public class EventService {
                 EventItemResponseDTO fcmPayload = buildEventResponseDTO(user.getUno(), newEvents);
 
                 if (user.getFcmToken() != null && !user.getFcmToken().isEmpty()) {
-                    fcmService.sendEvents(user.getFcmToken(), fcmPayload);
+//                    fcmService.sendEvents(user.getFcmToken(), fcmPayload);
                 } else {
                     System.out.println("User " + user.getUno() + " has no FCM token. Skip sending.");
                 }

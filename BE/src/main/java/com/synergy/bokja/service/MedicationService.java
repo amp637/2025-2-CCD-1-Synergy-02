@@ -215,7 +215,7 @@ public class MedicationService {
 
             if (!todayEvents.isEmpty()) {
                 try {
-                    eventService.sendCreatedEvents(user, todayEvents);
+//                    eventService.sendCreatedEvents(user, todayEvents);
                 } catch (Exception e) {
                     // FCM 전송 실패해도 처방전 등록 자체는 성공 처리 (로그만 남김)
                     System.err.println("처방전 등록 후 FCM 전송 실패: " + e.getMessage());
