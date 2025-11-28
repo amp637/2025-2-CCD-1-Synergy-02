@@ -401,13 +401,19 @@ public class ReportService {
         payload.put("save_cycle", cycle.getSaveCycle());
         payload.put("effects", effects);
 
+        // 1) JSON 문자열 생성
         String json = objectMapper.writeValueAsString(payload);
+        log.info("[ReportService] LLM payload json = {}", json);
 
-        // Python 실행
+        // 2) JSON을 Base64로 인코딩
+        String encodedPayload = Base64.getEncoder()
+                .encodeToString(json.getBytes(StandardCharsets.UTF_8));
+
+        // 3) Python 실행: 이제는 Base64 문자열을 인자로 전달
         String llmResult = runPythonScript(
                 llmScriptPath,
                 "report_summary",
-                json
+                encodedPayload
         );
 
         if (llmResult == null || llmResult.isBlank()) {
