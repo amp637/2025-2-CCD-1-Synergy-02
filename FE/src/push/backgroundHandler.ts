@@ -1,13 +1,8 @@
 // 설치 필요:
-// npx expo install @react-native-firebase/messaging @notifee/react-native
+// npx expo install @react-native-firebase/messaging
 
 import messaging from '@react-native-firebase/messaging';
-import notifee, { 
-  AndroidImportance, 
-  TriggerType, 
-  TimestampTrigger,
-  AndroidChannel,
-} from '@notifee/react-native';
+import * as Notifications from 'expo-notifications';
 import { api } from '../api/api';
 import { BaseResponse } from '../api/types';
 
@@ -36,16 +31,13 @@ const MEDICATION_CHANNEL_ID = 'medication';
  */
 async function createNotificationChannel() {
   try {
-    const channel: AndroidChannel = {
-      id: MEDICATION_CHANNEL_ID,
+    await Notifications.setNotificationChannelAsync(MEDICATION_CHANNEL_ID, {
       name: '복약 알림',
-      importance: AndroidImportance.HIGH,
+      importance: Notifications.AndroidImportance.HIGH,
       sound: 'default',
-      vibration: true,
       vibrationPattern: [0, 250, 250, 250],
-    };
-
-    await notifee.createChannel(channel);
+      lightColor: '#FF231F7C',
+    });
     console.log('[BackgroundHandler] ✅ 알림 채널 생성 완료:', MEDICATION_CHANNEL_ID);
   } catch (error: any) {
     console.error('[BackgroundHandler] ❌ 알림 채널 생성 실패:', error);
@@ -93,7 +85,7 @@ async function scheduleMedicationNotifications(medicationTimes: MedicationTime[]
     console.log('[BackgroundHandler] 예약할 알림 개수:', medicationTimes.length);
     
     // 기존 알림 모두 취소 (중복 방지)
-    await notifee.cancelAllNotifications();
+    await Notifications.cancelAllScheduledNotificationsAsync();
     console.log('[BackgroundHandler] 기존 알림 모두 취소 완료');
     
     // 각 복약 시간에 대해 알림 예약
@@ -107,27 +99,23 @@ async function scheduleMedicationNotifications(medicationTimes: MedicationTime[]
         console.log(`  - 시간: ${medTime.time}시`);
         console.log(`  - 예약 시각: ${triggerDate.toLocaleString('ko-KR')}`);
         
-        const trigger: TimestampTrigger = {
-          type: TriggerType.TIMESTAMP,
-          timestamp: triggerDate.getTime(),
-          alarmManager: true,
-        };
-        
-        await notifee.createTriggerNotification(
-          {
-            id: `medication-${medTime.utno}-${medTime.tno}`,
+        await Notifications.scheduleNotificationAsync({
+          identifier: `medication-${medTime.utno}-${medTime.tno}`,
+          content: {
             title: '복약 알림',
             body: `${typeLabel} 복약 시간이에요!`,
-            android: {
-              channelId: MEDICATION_CHANNEL_ID,
-              importance: AndroidImportance.HIGH,
-              pressAction: {
-                id: 'default',
-              },
+            sound: true,
+            data: {
+              type: medTime.type,
+              utno: medTime.utno,
+              tno: medTime.tno,
             },
           },
-          trigger
-        );
+          trigger: {
+            date: triggerDate,
+            channelId: MEDICATION_CHANNEL_ID,
+          },
+        });
         
         console.log(`[BackgroundHandler] ✅ 알림 예약 완료: ${typeLabel} ${medTime.time}시`);
       } catch (error: any) {
