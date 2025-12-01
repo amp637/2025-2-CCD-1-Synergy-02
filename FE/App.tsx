@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import * as SplashScreenExpo from 'expo-splash-screen';
 import { Asset } from 'expo-asset';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { getUserMedications } from './src/api/userApi';
 import { useAuthStore } from './src/stores/authStore';
 
