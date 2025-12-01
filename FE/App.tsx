@@ -1,8 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform } from 'react-native';
 import * as SplashScreenExpo from 'expo-splash-screen';
 import { Asset } from 'expo-asset';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import * as Notifications from 'expo-notifications';
+import notifee, { EventType, AndroidImportance, AndroidCategory } from '@notifee/react-native';
 import { getUserMedications } from './src/api/userApi';
 import { useAuthStore } from './src/stores/authStore';
 
@@ -289,6 +291,123 @@ export default function App() {
       setCurrentEventUmno(null);
     }
   }, [currentScreen, quizWrongCount]);
+
+  // 알림 클릭 시 라우팅 처리 함수
+  const handleNotificationRoute = useCallback((route: string, data?: Record<string, any>) => {
+    console.log('[App] 알림 클릭 - 라우팅:', route, '데이터:', data);
+    
+    if (route === 'IntakeAlarmQuizScreen') {
+      // 알림 데이터에서 eno, umno 추출
+      if (data?.eno !== undefined) {
+        const enoValue = typeof data.eno === 'string' ? Number(data.eno) : data.eno;
+        setCurrentEventEno(typeof enoValue === 'number' ? enoValue : null);
+      }
+      if (data?.umno !== undefined) {
+        const umnoValue = typeof data.umno === 'string' ? Number(data.umno) : data.umno;
+        setCurrentEventUmno(typeof umnoValue === 'number' ? umnoValue : null);
+      }
+      setQuizWrongCount(0); // 퀴즈 오답 횟수 초기화
+      setCurrentScreen('IntakeAlarmQuizScreen');
+    }
+  }, []);
+
+  // Notifee 및 Expo Notifications 리스너 설정
+  useEffect(() => {
+    if (!appIsReady) return;
+
+    console.log('[App] 알림 리스너 설정 시작...');
+
+    // 1. Notifee 포그라운드 이벤트 리스너
+    const unsubscribeForeground = notifee.onForegroundEvent(({ type, detail }) => {
+      console.log('[App] Notifee 포그라운드 이벤트:', type, detail);
+      
+      if (type === EventType.PRESS || type === EventType.ACTION_PRESS) {
+        const route = detail.notification?.data?.route;
+        if (route && typeof route === 'string') {
+          handleNotificationRoute(route, detail.notification?.data as Record<string, any>);
+        }
+      }
+    });
+
+    // 2. Expo Notifications 리스너 (알림 클릭 시)
+    const notificationResponseSubscription = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        console.log('[App] Expo 알림 클릭:', response);
+        const route = response.notification.request.content.data?.route;
+        if (route && typeof route === 'string') {
+          handleNotificationRoute(route, response.notification.request.content.data as Record<string, any>);
+        }
+      }
+    );
+
+    // 3. Expo Notifications 포그라운드 알림 리스너 (알림이 발생했을 때 Notifee로 풀스크린 알림 표시)
+    const notificationReceivedSubscription = Notifications.addNotificationReceivedListener(
+      async (notification) => {
+        console.log('[App] Expo 알림 수신:', notification);
+        
+        // Notifee로 풀스크린 알림 표시
+        try {
+          // Notifee 알림 채널 생성 (이미 생성되어 있어도 안전)
+          await notifee.createChannel({
+            id: 'alarm',
+            name: 'Medicine Alarm',
+            importance: AndroidImportance.HIGH,
+            sound: 'default',
+            vibration: true,
+            vibrationPattern: [0, 250, 250, 250],
+          });
+
+          const notificationData = notification.request.content.data as Record<string, any> | undefined;
+          const typeValue = notificationData?.type;
+          const typeLabel = typeValue === 'breakfast' ? '아침' :
+                           typeValue === 'lunch' ? '점심' :
+                           typeValue === 'dinner' ? '저녁' :
+                           typeValue === 'bedtime' ? '취침' : '복약';
+
+          // Notifee로 풀스크린 알림 표시
+          await notifee.displayNotification({
+            title: '약 드실 시간입니다!',
+            body: `${typeLabel} 복약 시간이에요! 터치하면 복약 퀴즈 화면으로 이동합니다.`,
+            android: {
+              channelId: 'alarm',
+              // ⭐ 핵심: 풀스크린 인텐트
+              fullScreenAction: {
+                id: 'default',
+                launchActivity: 'default',
+              },
+              category: AndroidCategory.ALARM,
+              pressAction: {
+                id: 'default',
+                launchActivity: 'default',
+              },
+              importance: AndroidImportance.HIGH,
+              sound: 'default',
+              vibrationPattern: [0, 250, 250, 250],
+            },
+            data: {
+              route: 'IntakeAlarmQuizScreen',
+              type: typeValue,
+              utno: notificationData?.utno,
+              tno: notificationData?.tno,
+              eno: notificationData?.eno,
+              umno: notificationData?.umno,
+            },
+          });
+
+          console.log('[App] ✅ Notifee 풀스크린 알림 표시 완료');
+        } catch (error: any) {
+          console.error('[App] ❌ Notifee 풀스크린 알림 표시 실패:', error);
+        }
+      }
+    );
+
+    return () => {
+      console.log('[App] 알림 리스너 해제');
+      unsubscribeForeground();
+      notificationResponseSubscription.remove();
+      notificationReceivedSubscription.remove();
+    };
+  }, [appIsReady, handleNotificationRoute]);
 
   const onLayoutRootView = useCallback(async () => {
     if (appIsReady) {
