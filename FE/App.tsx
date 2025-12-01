@@ -6,6 +6,9 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { getUserMedications } from './src/api/userApi';
 import { useAuthStore } from './src/stores/authStore';
 
+// FCM 백그라운드 메시지 핸들러 등록 (앱 시작 시 자동 실행)
+import './src/push/backgroundHandler';
+
 // Import all screens
 import SplashScreen from './src/screens/SplashScreen';
 import { IncomingCallScreen, ActiveCallScreen } from './src/screens';

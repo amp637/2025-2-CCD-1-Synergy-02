@@ -18,6 +18,7 @@ import responsive from '../../utils/responsive';
 import { signUp, login } from '../../api/authApi';
 import { useUserStore } from '../../stores/userStore';
 import { useAuthStore } from '../../stores/authStore';
+import { fetchAndStoreFcmToken } from '../../utils/fcmToken';
 
 interface OnboardingSignUpProps {
   onSignUpComplete?: (isLogin?: boolean) => void; // isLogin: true면 로그인, false면 회원가입
@@ -66,12 +67,26 @@ export default function OnboardingSignUp({ onSignUpComplete }: OnboardingSignUpP
       console.log('회원가입 시작...');
       
       // AuthStore에서 FCM 토큰 가져오기
-      const { fcmToken } = useAuthStore.getState();
+      let { fcmToken } = useAuthStore.getState();
       
       console.log('\n🔍 === FCM 토큰 상태 확인 ===');
-      console.log('📍 FCM 토큰:', fcmToken ? fcmToken.substring(0, 50) + '...' : '없음');
+      console.log('📍 FCM 토큰 (초기):', fcmToken ? fcmToken.substring(0, 50) + '...' : '없음');
       console.log('📍 토큰 길이:', fcmToken ? fcmToken.length : 0);
       console.log('📍 토큰 타입:', typeof fcmToken);
+      
+      // FCM 토큰이 없으면 마지막으로 한번 더 시도
+      if (!fcmToken) {
+        console.log('[OnboardingSignUp] ⚠️ FCM 토큰이 없습니다. 토큰 발급 재시도...');
+        const newToken = await fetchAndStoreFcmToken();
+        if (newToken) {
+          fcmToken = newToken;
+          console.log('[OnboardingSignUp] ✅ FCM 토큰 재발급 성공');
+        } else {
+          console.warn('[OnboardingSignUp] ⚠️ FCM 토큰 재발급 실패. 빈 문자열로 전송합니다.');
+        }
+      }
+      
+      console.log('📍 FCM 토큰 (최종):', fcmToken ? fcmToken.substring(0, 50) + '...' : '없음');
       console.log('========================\n');
 
       // 회원가입 API 호출
@@ -92,21 +107,25 @@ export default function OnboardingSignUp({ onSignUpComplete }: OnboardingSignUpP
       console.log('회원가입 데이터 (정규화 전):', { name: name.trim(), phone: phone.trim(), birth: birthdate.trim() });
       console.log('회원가입 데이터 (정규화 후):', { name: name.trim(), phone: normalizedPhone, birth: normalizedBirth });
       
-      // 백엔드는 "birth" 필드명을 사용하고 LocalDate 타입을 받습니다 (YYYY-MM-DD 형식)
-      // FCM 토큰이 없으면 빈 문자열로 전송 (백엔드에서 nullable로 처리)
-      // 백엔드 UserSignupRequestDTO에 맞게 필드명 정확히 매칭
+      // 백엔드 Swagger SignUpRequest 스펙에 맞게 필드명 정확히 매칭
+      // 필드명: name, birth, call, fcm (required: [name, birth, call, fcm])
       const signUpData: any = {};
       signUpData.name = name.trim();
       signUpData.birth = normalizedBirth; // YYYY-MM-DD 형식
-      signUpData.phone = normalizedPhone; // 백엔드 DTO: phone (하이픈 제거된 전화번호)
-      signUpData.fcmToken = fcmToken || ''; // 백엔드 DTO: fcmToken
+      signUpData.call = normalizedPhone; // 백엔드 스펙: call (하이픈 제거된 전화번호)
+      signUpData.fcm = fcmToken || ''; // 백엔드 스펙: fcm (FCM 디바이스 토큰)
 
+      // 테스트용 로그 (회원가입 버튼 클릭 시 최종 요청 데이터 확인)
       console.log('\n📤 === 회원가입 요청 준비 ===');
+      console.log('[SignUp] 최종 요청 데이터:', JSON.stringify(signUpData, null, 2));
+      console.log('[SignUp] fcm length:', signUpData.fcm?.length || 0);
       console.log('📍 요청 시간:', new Date().toISOString());
       console.log('📍 요청 URL: POST http://15.165.38.252:8080/users');
-      console.log('📍 요청 데이터:', JSON.stringify(signUpData, ['name', 'birth', 'phone', 'fcmToken'], 2));
-      console.log('📍 fcmToken 길이:', signUpData.fcmToken.length);
-      console.log('📍 fcmToken 전체:', signUpData.fcmToken);
+      console.log('📍 요청 데이터 (정렬):', JSON.stringify(signUpData, ['name', 'birth', 'call', 'fcm'], 2));
+      console.log('📍 fcm 길이:', signUpData.fcm.length);
+      if (signUpData.fcm) {
+        console.log('📍 fcm 앞 50자:', signUpData.fcm.substring(0, 50) + '...');
+      }
       console.log('========================\n');
 
       console.log('🚀 signUp API 호출 시작...');
