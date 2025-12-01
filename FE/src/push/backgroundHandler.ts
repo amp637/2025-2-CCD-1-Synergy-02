@@ -1,8 +1,10 @@
 // 설치 필요:
 // npx expo install @react-native-firebase/messaging
+// npm install @notifee/react-native
 
 import messaging from '@react-native-firebase/messaging';
 import * as Notifications from 'expo-notifications';
+import notifee, { AndroidImportance, AndroidCategory, EventType } from '@notifee/react-native';
 import { api } from '../api/api';
 import { BaseResponse } from '../api/types';
 
@@ -25,9 +27,10 @@ interface MedicationTimesResponse {
 
 // 알림 채널 ID
 const MEDICATION_CHANNEL_ID = 'medication';
+const NOTIFEE_ALARM_CHANNEL_ID = 'alarm';
 
 /**
- * Android 알림 채널 생성
+ * Android 알림 채널 생성 (Expo Notifications용)
  */
 async function createNotificationChannel() {
   try {
@@ -38,9 +41,28 @@ async function createNotificationChannel() {
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#FF231F7C',
     });
-    console.log('[BackgroundHandler] ✅ 알림 채널 생성 완료:', MEDICATION_CHANNEL_ID);
+    console.log('[BackgroundHandler] ✅ Expo 알림 채널 생성 완료:', MEDICATION_CHANNEL_ID);
   } catch (error: any) {
-    console.error('[BackgroundHandler] ❌ 알림 채널 생성 실패:', error);
+    console.error('[BackgroundHandler] ❌ Expo 알림 채널 생성 실패:', error);
+  }
+}
+
+/**
+ * Notifee 알림 채널 생성 (풀스크린 인텐트용)
+ */
+async function createNotifeeAlarmChannel() {
+  try {
+    await notifee.createChannel({
+      id: NOTIFEE_ALARM_CHANNEL_ID,
+      name: 'Medicine Alarm',
+      importance: AndroidImportance.HIGH,
+      sound: 'default',
+      vibration: true,
+      vibrationPattern: [0, 250, 250, 250],
+    });
+    console.log('[BackgroundHandler] ✅ Notifee 알림 채널 생성 완료:', NOTIFEE_ALARM_CHANNEL_ID);
+  } catch (error: any) {
+    console.error('[BackgroundHandler] ❌ Notifee 알림 채널 생성 실패:', error);
   }
 }
 
@@ -207,8 +229,9 @@ async function handleBackgroundMessage(remoteMessage: any) {
     
     console.log('[BackgroundHandler] ✅ SYNC_MEDICATION_TIMES 메시지 감지');
     
-    // 1. 알림 채널 생성
+    // 1. 알림 채널 생성 (Expo Notifications 및 Notifee)
     await createNotificationChannel();
+    await createNotifeeAlarmChannel();
     
     // 2. 백엔드 API 호출하여 복약 시간 조회
     const medicationTimes = await fetchMedicationTimes();
@@ -235,5 +258,20 @@ async function handleBackgroundMessage(remoteMessage: any) {
 // FCM 백그라운드 메시지 핸들러 등록
 messaging().setBackgroundMessageHandler(handleBackgroundMessage);
 
+// Notifee 백그라운드 이벤트 핸들러 등록
+notifee.onBackgroundEvent(async ({ type, detail }) => {
+  console.log('[BackgroundHandler] Notifee 백그라운드 이벤트:', type, detail);
+  
+  if (type === EventType.PRESS || type === EventType.ACTION_PRESS) {
+    const route = detail.notification?.data?.route;
+    if (route && typeof route === 'string') {
+      console.log('[BackgroundHandler] 백그라운드 알림 클릭 - 라우팅 예정:', route);
+      // 백그라운드에서는 직접 라우팅할 수 없으므로,
+      // 앱이 포그라운드로 올 때 App.tsx의 리스너에서 처리됨
+    }
+  }
+});
+
 console.log('[BackgroundHandler] ✅ FCM 백그라운드 메시지 핸들러 등록 완료');
+console.log('[BackgroundHandler] ✅ Notifee 백그라운드 이벤트 핸들러 등록 완료');
 
