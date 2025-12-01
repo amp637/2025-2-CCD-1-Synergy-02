@@ -1,12 +1,10 @@
-// 설치 필요 (Firebase SDK 사용 시):
+// 설치 필요:
 // npx expo install @react-native-firebase/app @react-native-firebase/messaging
-//
-// 현재는 expo-notifications의 getDevicePushTokenAsync()를 사용하여
-// Android에서 FCM 디바이스 토큰을 직접 받아옵니다.
 
+import messaging from '@react-native-firebase/messaging';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
-import { Platform } from 'react-native';
+import { Platform, Alert } from 'react-native';
 import { useAuthStore } from '../stores/authStore';
 
 /**
@@ -16,12 +14,15 @@ import { useAuthStore } from '../stores/authStore';
 export async function requestNotificationPermissionIfNeeded(): Promise<boolean> {
   try {
     console.log('[FCM Token] 알림 권한 확인 시작...');
+    console.log('[FCM Token] Device.isDevice:', Device.isDevice);
+    console.log('[FCM Token] Device.isPhysicalDevice:', Device.isPhysicalDevice);
     
-    // 실제 기기에서만 동작
-    if (!Device.isDevice) {
-      console.warn('[FCM Token] ⚠️ 실제 기기에서만 푸시 알림을 사용할 수 있습니다.');
-      return false;
-    }
+    // 에뮬레이터에서도 테스트 가능하도록 Device.isDevice 체크 제거
+    // 실제 기기와 에뮬레이터 모두에서 동작하도록 변경
+    // if (!Device.isDevice) {
+    //   console.warn('[FCM Token] ⚠️ 실제 기기에서만 푸시 알림을 사용할 수 있습니다.');
+    //   return false;
+    // }
 
     // Android 알림 채널 설정
     if (Platform.OS === 'android') {
@@ -77,18 +78,14 @@ export async function fetchAndStoreFcmToken(): Promise<string | null> {
       return null;
     }
     
-    // 2) FCM 디바이스 토큰 가져오기
-    // Android에서는 getDevicePushTokenAsync()가 FCM 토큰을 반환합니다.
-    // iOS에서는 APNS 토큰을 반환합니다.
-    console.log('[FCM Token] 디바이스 푸시 토큰 요청 중...');
-    const devicePushToken = await Notifications.getDevicePushTokenAsync();
+    // 2) FCM 디바이스 토큰 가져오기 (Firebase Messaging 사용)
+    console.log('[FCM Token] Firebase Messaging에서 토큰 요청 중...');
+    const token = await messaging().getToken();
     
-    if (!devicePushToken || !devicePushToken.data) {
-      console.error('[FCM Token] ❌ 디바이스 푸시 토큰이 비어있습니다.');
+    if (!token) {
+      console.error('[FCM Token] ❌ FCM 디바이스 토큰이 비어있습니다.');
       return null;
     }
-    
-    const token = devicePushToken.data;
     
     // 3) 토큰 정보 로깅
     console.log('[FCM Token] ✅ FCM 디바이스 토큰 발급 성공');
@@ -96,8 +93,10 @@ export async function fetchAndStoreFcmToken(): Promise<string | null> {
     console.log('[FCM Token] 토큰 길이:', token.length);
     console.log('[FCM Token] 토큰 타입:', typeof token);
     console.log('[FCM Token] 플랫폼:', Platform.OS);
+    console.log('[FCM Token] Device.isDevice:', Device.isDevice);
+    console.log('[FCM Token] Device.isPhysicalDevice:', Device.isPhysicalDevice);
     
-    // Android에서 FCM 토큰 형식 확인 (일반적으로 긴 문자열)
+    // FCM 토큰 형식 확인
     if (Platform.OS === 'android') {
       // FCM 토큰은 보통 152자 정도의 문자열입니다
       if (token.length < 50) {
@@ -105,7 +104,8 @@ export async function fetchAndStoreFcmToken(): Promise<string | null> {
       }
       // ExponentPushToken 형식이 아닌지 확인
       if (token.startsWith('ExponentPushToken')) {
-        console.error('[FCM Token] ❌ 이 토큰은 Expo Push Token입니다! FCM 토큰이 아닙니다.');
+        console.error('[FCM Token] ❌ Expo Push Token이 감지되었습니다. Firebase FCM 디바이스 토큰이 아닙니다.');
+        console.error('[FCM Token] Expo Go 환경에서는 Expo Push Token이 발급될 수 있습니다. 커스텀 개발 클라이언트에서 테스트해주세요.');
         return null;
       }
     }
