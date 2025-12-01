@@ -96,7 +96,7 @@ public class EventService {
                 eventRepository.saveAll(newEvents);
 
                 // 3. 저장한 이벤트로 DTO 생성
-                EventItemResponseDTO fcmPayload = buildEventResponseDTO(user.getUno(), newEvents);
+                EventItemResponseDTO fcmPayload = buildEventResponseDTO(user.getUno(), newEvents, false);
 
                 if (user.getFcmToken() != null && !user.getFcmToken().isEmpty()) {
                     fcmService.sendEvents(user.getFcmToken(), fcmPayload);
@@ -231,13 +231,13 @@ public class EventService {
         }
 
         // 3. 공통 DTO 빌더를 호출하여 반환 (기존 동일)
-        return buildEventResponseDTO(uno, events);
+        return buildEventResponseDTO(uno, events, true);
     }
 
     /**
      * [공통 헬퍼] 1. EventEntity 목록을 받아서 최종 DTO(FCM/API 응답용)로 만듦
      */
-    private EventItemResponseDTO buildEventResponseDTO(Long uno, List<EventEntity> events) {
+    private EventItemResponseDTO buildEventResponseDTO(Long uno, List<EventEntity> events, boolean includeTTS) {
         // (N+1 방지) 퀴즈 옵션 미리 조회
         List<Long> qnoList = events.stream()
                 .map(EventEntity::getQuiz)
@@ -301,8 +301,10 @@ public class EventService {
                 throw new IllegalArgumentException("description이 비어있습니다.");
             }
 
+            String audioUrl = null;
+
             // TTS 생성 (Base64 문자열 반환)
-            String audioUrl = ttsService.generateTtsFromText(descriptionText);
+            if(includeTTS) audioUrl = ttsService.generateTtsFromText(descriptionText);
 
             return new EventItemDTO(
                     event.getEno(), med.getUmno(), event.getEventName().getName(), time,
@@ -317,7 +319,7 @@ public class EventService {
     }
 
     public void sendCreatedEvents(UserEntity user, List<EventEntity> events) {
-        EventItemResponseDTO fcmPayload = buildEventResponseDTO(user.getUno(), events);
+        EventItemResponseDTO fcmPayload = buildEventResponseDTO(user.getUno(), events, false);
 
         if (user.getFcmToken() != null && !user.getFcmToken().isEmpty()) {
             fcmService.sendEvents(user.getFcmToken(), fcmPayload);
