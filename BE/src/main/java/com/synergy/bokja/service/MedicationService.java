@@ -214,17 +214,17 @@ public class MedicationService {
             List<EventEntity> todayEvents = generateEventsForToday(user, savedPrescription, alarmComb);
             System.out.println("생성된 당일 이벤트 개수: " + todayEvents.size());
 
-            if (!todayEvents.isEmpty()) {
-                try {
-                    System.out.println("FCM 전송 시도 - 토큰: " + user.getFcmToken());
-                    eventService.sendCreatedEvents(user, todayEvents);
-                } catch (Exception e) {
-                    // FCM 전송 실패해도 처방전 등록 자체는 성공 처리 (로그만 남김)
-                    System.err.println("처방전 등록 후 FCM 전송 실패: " + e.getMessage());
-                }
-            }else {
-                System.out.println("오늘 남은 알림이 없어서 FCM을 보내지 않습니다.");
-            }
+//            if (!todayEvents.isEmpty()) {
+//                try {
+//                    System.out.println("FCM 전송 시도 - 토큰: " + user.getFcmToken());
+//                    eventService.sendCreatedEvents(user, todayEvents);
+//                } catch (Exception e) {
+//                    // FCM 전송 실패해도 처방전 등록 자체는 성공 처리 (로그만 남김)
+//                    System.err.println("처방전 등록 후 FCM 전송 실패: " + e.getMessage());
+//                }
+//            }else {
+//                System.out.println("오늘 남은 알림이 없어서 FCM을 보내지 않습니다.");
+//            }
 
             return new MedicationCreateResponseDTO(umno);
 
@@ -771,6 +771,51 @@ public class MedicationService {
 
         // 8) 변경 사항 저장 (update만 수행, delete 없음)
         alarmTimeRepository.saveAll(existingTimes);
+
+        // 9) 기존 '발행' 상태의 오늘 날짜 이벤트 삭제
+        LocalDateTime startOfDay = LocalDate.now().atStartOfDay();
+        LocalDateTime endOfDay = LocalDate.now().atTime(LocalTime.MAX);
+
+        List<EventEntity> oldEvents = eventRepository.findAllByUserMedicine_User_UnoAndStatusAndCreatedAtBetween(
+                uno,
+                EventStatus.발행,
+                startOfDay,
+                endOfDay
+        );
+
+        // (해당 약(umno)에 대한 이벤트만 필터링해서 삭제)
+        List<EventEntity> targetEvents = oldEvents.stream()
+                .filter(e -> e.getUserMedicine().getUmno().equals(umno))
+                .collect(Collectors.toList());
+
+        if (!targetEvents.isEmpty()) {
+            eventRepository.deleteAll(targetEvents);
+            System.out.println("기존 당일 이벤트 " + targetEvents.size() + "개 삭제 완료");
+
+            // Cycle 카운트도 롤백해야 함 (삭제된 개수만큼 감소)
+            CycleEntity cycle = cycleRepository.findByUserMedicine_Umno(umno).orElse(null);
+            if (cycle != null) {
+                cycle.setCurCycle(cycle.getCurCycle() - targetEvents.size());
+            }
+        }
+
+        // 변경된 시간으로 당일 이벤트 재생성
+        UserEntity user = userMedicine.getUser(); // 유저 정보 가져오기
+        List<EventEntity> newTodayEvents = generateEventsForToday(user, userMedicine, newComb);
+
+        // FCM 전송
+        System.out.println("재생성된 당일 이벤트 개수: " + newTodayEvents.size());
+
+        if (!newTodayEvents.isEmpty()) {
+            try {
+                System.out.println("FCM 전송 시도 (시간 변경) - 토큰: " + user.getFcmToken());
+                eventService.sendCreatedEvents(user, newTodayEvents);
+            } catch (Exception e) {
+                System.err.println("시간 변경 후 FCM 전송 실패: " + e.getMessage());
+            }
+        } else {
+            System.out.println("오늘 남은 알림이 없어서 FCM을 보내지 않습니다.");
+        }
 
         // 9) 응답 DTO
         return new MedicationCombinationResponseDTO(
