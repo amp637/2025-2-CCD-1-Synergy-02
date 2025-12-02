@@ -322,7 +322,10 @@ public class EventService {
         EventItemResponseDTO fcmPayload = buildEventResponseDTO(user.getUno(), events, false);
 
         if (user.getFcmToken() != null && !user.getFcmToken().isEmpty()) {
+            System.out.println("sendEvents 호출");
             fcmService.sendEvents(user.getFcmToken(), fcmPayload);
+        }else{
+            System.out.println("FCM 토큰이 없거나 비어있습니다.");
         }
     }
 }

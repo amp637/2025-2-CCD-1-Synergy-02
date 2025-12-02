@@ -212,14 +212,18 @@ public class MedicationService {
             createInitialAlarmTimes(user, savedPrescription, alarmComb);
 
             List<EventEntity> todayEvents = generateEventsForToday(user, savedPrescription, alarmComb);
+            System.out.println("생성된 당일 이벤트 개수: " + todayEvents.size());
 
             if (!todayEvents.isEmpty()) {
                 try {
+                    System.out.println("FCM 전송 시도 - 토큰: " + user.getFcmToken());
                     eventService.sendCreatedEvents(user, todayEvents);
                 } catch (Exception e) {
                     // FCM 전송 실패해도 처방전 등록 자체는 성공 처리 (로그만 남김)
                     System.err.println("처방전 등록 후 FCM 전송 실패: " + e.getMessage());
                 }
+            }else {
+                System.out.println("오늘 남은 알림이 없어서 FCM을 보내지 않습니다.");
             }
 
             return new MedicationCreateResponseDTO(umno);
