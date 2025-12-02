@@ -111,7 +111,7 @@ export default function MedicationEnvelopeCaptureScreen({ onCapture, showRetakeM
     try {
       // 카메라로 사진 촬영 (확인 화면 없이 즉시 촬영)
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: false,
         quality: 1, // 최고 품질
         base64: false,

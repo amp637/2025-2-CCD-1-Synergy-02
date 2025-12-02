@@ -107,24 +107,37 @@ export default function OnboardingSignUp({ onSignUpComplete }: OnboardingSignUpP
       console.log('회원가입 데이터 (정규화 전):', { name: name.trim(), phone: phone.trim(), birth: birthdate.trim() });
       console.log('회원가입 데이터 (정규화 후):', { name: name.trim(), phone: normalizedPhone, birth: normalizedBirth });
       
-      // 백엔드 Swagger SignUpRequest 스펙에 맞게 필드명 정확히 매칭
-      // 필드명: name, birth, call, fcm (required: [name, birth, call, fcm])
+      // 백엔드 스펙에 맞게 필드명 정확히 매칭
+      // 필드명: name, birth, phone, fcm_token
       const signUpData: any = {};
       signUpData.name = name.trim();
       signUpData.birth = normalizedBirth; // YYYY-MM-DD 형식
       signUpData.phone = normalizedPhone; // 백엔드 스펙: call (하이픈 제거된 전화번호)
       signUpData.fcmToken = fcmToken || ''; // 백엔드 스펙: fcm (FCM 디바이스 토큰)
 
+      // fcm_token이 null이면 요청하지 않음
+//       if (fcmToken) {
+//         signUpData.fcmToken = fcmToken;
+//       }
+
       // 테스트용 로그 (회원가입 버튼 클릭 시 최종 요청 데이터 확인)
       console.log('\n📤 === 회원가입 요청 준비 ===');
       console.log('[SignUp] 최종 요청 데이터:', JSON.stringify(signUpData, null, 2));
-      console.log('[SignUp] fcm length:', signUpData.fcm?.length || 0);
+      console.log('[SignUp] fcm_token length:', signUpData.fcm_token?.length || 0);
       console.log('📍 요청 시간:', new Date().toISOString());
       console.log('📍 요청 URL: POST http://15.165.38.252:8080/users');
       console.log('📍 요청 데이터 (정렬):', JSON.stringify(signUpData, ['name', 'birth', 'phone', 'fcmToken'], 2));
-      console.log('📍 fcm 길이:', signUpData.fcmToken.length);
       if (signUpData.fcmToken) {
-        console.log('📍 fcm 앞 50자:', signUpData.fcmToken.substring(0, 50) + '...');
+        console.log('📍 fcmToken 길이:', signUpData.fcmToken.length);
+        console.log('📍 fcmToken 앞 50자:', signUpData.fcmToken.substring(0, 50) + '...');
+
+     
+//       if (signUpData.fcmToken) {
+//         console.log('📍 fcmToken 길이:', signUpData.fcmToken.length);
+//         console.log('📍 fcmToken 앞 50자:', signUpData.fcmToken.substring(0, 50) + '...');
+//       } else {
+//         console.log('📍 fcmToken: 없음 (요청에 포함되지 않음)');
+
       }
       console.log('========================\n');
 
