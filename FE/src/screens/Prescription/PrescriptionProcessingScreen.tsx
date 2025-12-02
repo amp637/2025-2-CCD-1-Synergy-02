@@ -55,6 +55,25 @@ export default function PrescriptionProcessingScreen({
   const isProcessingRef = useRef(false);
   const soundRef = useRef<Audio.Sound | null>(null);
 
+  // 배경음악 점진적으로 줄이기 (Fade Out)
+  const fadeOutMusic = async () => {
+    if (!soundRef.current) return;
+    try {
+      const duration = 500; // 0.5초 동안 페이드 아웃
+      const steps = 10; // 10단계로 나눔
+      const stepDuration = duration / steps;
+      const volumeStep = 0.5 / steps; // 초기 볼륨 0.5에서 0으로
+
+      for (let i = steps; i >= 0; i--) {
+        const volume = i * volumeStep;
+        await soundRef.current.setVolumeAsync(volume);
+        await new Promise(resolve => setTimeout(resolve, stepDuration));
+      }
+    } catch (error) {
+      console.error('[PrescriptionProcessingScreen] 페이드 아웃 실패:', error);
+    }
+  };
+
   // 배경음악 재생 (랜덤 선택)
   useEffect(() => {
     let isMounted = true;
@@ -131,8 +150,9 @@ export default function PrescriptionProcessingScreen({
         console.error('❌ 이미지 URI가 없습니다!');
         // 배경음악 종료
         if (soundRef.current) {
-          console.log('[PrescriptionProcessingScreen] 이미지 URI 없음 - 배경음악 종료');
+          console.log('[PrescriptionProcessingScreen] 이미지 URI 없음 - 배경음악 페이드 아웃');
           try {
+            await fadeOutMusic();
             await soundRef.current.stopAsync();
             await soundRef.current.unloadAsync();
             soundRef.current = null;
@@ -184,7 +204,8 @@ export default function PrescriptionProcessingScreen({
         if (response.header?.resultCode === 1000) {
           // 배경음악 종료 (다음 화면으로 이동하기 전)
           if (soundRef.current) {
-            console.log('[PrescriptionProcessingScreen] 성공 - 배경음악 종료');
+            console.log('[PrescriptionProcessingScreen] 성공 - 배경음악 페이드 아웃');
+            await fadeOutMusic();
             await soundRef.current.stopAsync();
             await soundRef.current.unloadAsync();
             soundRef.current = null;
@@ -248,8 +269,9 @@ export default function PrescriptionProcessingScreen({
       } catch (error: any) {
         // 에러 발생 시 배경음악 종료
         if (soundRef.current) {
-          console.log('[PrescriptionProcessingScreen] 에러 발생 - 배경음악 종료');
+          console.log('[PrescriptionProcessingScreen] 에러 발생 - 배경음악 페이드 아웃');
           try {
+            await fadeOutMusic();
             await soundRef.current.stopAsync();
             await soundRef.current.unloadAsync();
             soundRef.current = null;
