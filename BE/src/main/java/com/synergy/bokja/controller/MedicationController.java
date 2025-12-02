@@ -176,7 +176,7 @@ public class MedicationController {
                 medicationService.updateCombination(uno, umno, request);
 
         BaseResponse<MedicationCombinationResponseDTO> response =
-                new BaseResponse<>(1000, "투약 횟수 수정에 성공하였습니다.", result);
+                new BaseResponse<>(1000, "복약 알림 시간 수정에 성공하였습니다.", result);
 
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }
