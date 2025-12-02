@@ -40,12 +40,20 @@ export default function HomeScreen({
 }: HomeScreenProps) {
   const hasMedications = medications.length > 0;
 
-  // 날짜 포맷팅 함수 (YYYY-MM-DD -> YYYY년 MM월 DD일)
+  const getTodayDate = (): string => {
+    const today = new Date();
+    const month = today.getMonth() + 1;
+    const day = today.getDate();
+    const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+    const weekday = weekdays[today.getDay()];
+    
+    return `${month}월 ${day}일 (${weekday})`;
+  };
+
   const formatDate = (dateString: string): string => {
     if (!dateString) return '';
     
     try {
-      // YYYY-MM-DD 형식 파싱
       const date = new Date(dateString);
       if (isNaN(date.getTime())) {
         // 날짜 파싱 실패 시 원본 반환
@@ -76,7 +84,7 @@ export default function HomeScreen({
         {/* Header Section */}
         <View style={styles.headerSection}>
           <View style={styles.headingContainer}>
-            <Text style={styles.dateText}>10월 10일 (금)</Text>
+            <Text style={styles.dateText}>{getTodayDate()}</Text>
             <Text style={styles.greetingText}>오늘도 건강한 하루 되세요</Text>
           </View>
           {/* 복약 기록 버튼 - 약이 있을 때만 표시 */}
