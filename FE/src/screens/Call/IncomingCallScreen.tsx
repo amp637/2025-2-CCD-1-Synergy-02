@@ -44,8 +44,11 @@ export const IncomingCallScreen = React.memo(({
         
         // 오디오 모드 설정 (다른 오디오와 함께 재생 가능하도록)
         await Audio.setAudioModeAsync({
+          // IOS
           playsInSilentModeIOS: true,
+          // Android
           staysActiveInBackground: false,
+          playThroughEarpieceAndroid: false,
         });
         
         // 오디오 로드 및 재생

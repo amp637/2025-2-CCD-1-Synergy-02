@@ -71,8 +71,11 @@ export default function PrescriptionProcessingScreen({
         
         // 오디오 모드 설정
         await Audio.setAudioModeAsync({
+          // IOS
           playsInSilentModeIOS: true,
+          // Android
           staysActiveInBackground: false,
+          playThroughEarpieceAndroid: false,
         });
         
         // 오디오 로드 및 재생

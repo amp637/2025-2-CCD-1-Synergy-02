@@ -112,8 +112,8 @@ export default function OnboardingSignUp({ onSignUpComplete }: OnboardingSignUpP
       const signUpData: any = {};
       signUpData.name = name.trim();
       signUpData.birth = normalizedBirth; // YYYY-MM-DD 형식
-      signUpData.call = normalizedPhone; // 백엔드 스펙: call (하이픈 제거된 전화번호)
-      signUpData.fcm = fcmToken || ''; // 백엔드 스펙: fcm (FCM 디바이스 토큰)
+      signUpData.phone = normalizedPhone; // 백엔드 스펙: call (하이픈 제거된 전화번호)
+      signUpData.fcmToken = fcmToken || ''; // 백엔드 스펙: fcm (FCM 디바이스 토큰)
 
       // 테스트용 로그 (회원가입 버튼 클릭 시 최종 요청 데이터 확인)
       console.log('\n📤 === 회원가입 요청 준비 ===');
@@ -121,10 +121,10 @@ export default function OnboardingSignUp({ onSignUpComplete }: OnboardingSignUpP
       console.log('[SignUp] fcm length:', signUpData.fcm?.length || 0);
       console.log('📍 요청 시간:', new Date().toISOString());
       console.log('📍 요청 URL: POST http://15.165.38.252:8080/users');
-      console.log('📍 요청 데이터 (정렬):', JSON.stringify(signUpData, ['name', 'birth', 'call', 'fcm'], 2));
-      console.log('📍 fcm 길이:', signUpData.fcm.length);
-      if (signUpData.fcm) {
-        console.log('📍 fcm 앞 50자:', signUpData.fcm.substring(0, 50) + '...');
+      console.log('📍 요청 데이터 (정렬):', JSON.stringify(signUpData, ['name', 'birth', 'phone', 'fcmToken'], 2));
+      console.log('📍 fcm 길이:', signUpData.fcmToken.length);
+      if (signUpData.fcmToken) {
+        console.log('📍 fcm 앞 50자:', signUpData.fcmToken.substring(0, 50) + '...');
       }
       console.log('========================\n');
 
