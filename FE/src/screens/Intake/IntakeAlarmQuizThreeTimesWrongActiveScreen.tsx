@@ -21,12 +21,14 @@ interface IntakeAlarmQuizThreeTimesWrongActiveScreenProps {
   onMedicationTaken?: () => void;
   eno?: number; // 이벤트 번호
   umno?: number; // 복약 번호
+  eventDetail?: any;
 }
 
 const IntakeAlarmQuizThreeTimesWrongActiveScreen = React.memo(({ 
   onMedicationTaken, 
   eno,
-  umno 
+  umno,
+  eventDetail
 }: IntakeAlarmQuizThreeTimesWrongActiveScreenProps) => {
   const [isInteractionComplete, setIsInteractionComplete] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -42,19 +44,34 @@ const IntakeAlarmQuizThreeTimesWrongActiveScreen = React.memo(({
     const loadEventData = async () => {
       try {
         setIsLoading(true);
+
+        if (eventDetail) {
+            console.log('[IntakeAlarmQuizThreeTimesWrongActiveScreen] 알림 데이터 사용:', eventDetail);
+            setEventData(eventDetail);
+            setCorrectAnswer(eventDetail.candidate?.answer || '');
+            setIsLoading(false);
+            return; 
+        }
+
         const response = await getEvents();
         if (response.header?.resultCode === 1000 && response.body?.events) {
+          const events = response.body.events;
+          let event = null;
           // eno가 있으면 해당 이벤트를 찾고, 없으면 첫 번째 이벤트 사용
-          const event = eno 
-            ? response.body.events.find((e: any) => e.eno === eno)
-            : response.body.events[0];
+          if (eno) {
+            event = events.find((e: any) => 
+              e.eno === eno || e.eno === Number(eno) || String(e.eno) === String(eno)
+            );
+            if (!event) event = events[0];
+          } else {
+            event = events[0];
+          }
           
           if (event) {
             setEventData(event);
-            // 정답 설정
-            if (event.candidate?.answer) {
-              setCorrectAnswer(event.candidate.answer);
-            }
+            setCorrectAnswer(event.candidate?.answer || '');
+          } else {
+             Alert.alert('알림', '이벤트 정보를 찾을 수 없습니다.');
           }
         }
       } catch (error: any) {
@@ -66,7 +83,7 @@ const IntakeAlarmQuizThreeTimesWrongActiveScreen = React.memo(({
     };
     
     loadEventData();
-  }, [eno]);
+  }, [eno, eventDetail]);
 
   // 화면 전환 애니메이션 이후에 실행
   useEffect(() => {

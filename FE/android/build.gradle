@@ -17,11 +17,8 @@ allprojects {
   repositories {
     google()
     mavenCentral()
+    maven { url "$rootDir/../node_modules/@notifee/react-native/android/libs" } 
     maven { url 'https://www.jitpack.io' }
-    // Notifee 로컬 libs 폴더 추가
-    maven {
-      url "$rootDir/../node_modules/@notifee/react-native/android/libs"
-    }
   }
 }
 
