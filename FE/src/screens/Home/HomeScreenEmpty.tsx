@@ -18,6 +18,17 @@ interface HomeScreenEmptyProps {
 }
 
 export default function HomeScreenEmpty({ onPrescriptionRegister, onPillEnvelopeRegister, onEditInfo }: HomeScreenEmptyProps) {
+  // 오늘 날짜 포맷팅 함수 (MM월 DD일 (요일))
+  const getTodayDate = (): string => {
+    const today = new Date();
+    const month = today.getMonth() + 1;
+    const day = today.getDate();
+    const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+    const weekday = weekdays[today.getDay()];
+    
+    return `${month}월 ${day}일 (${weekday})`;
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
@@ -31,7 +42,7 @@ export default function HomeScreenEmpty({ onPrescriptionRegister, onPillEnvelope
         {/* Header Section */}
         <View style={styles.headerSection}>
           <View style={styles.headingContainer}>
-            <Text style={styles.dateText}>10월 10일 (금)</Text>
+            <Text style={styles.dateText}>{getTodayDate()}</Text>
             <Text style={styles.greetingText}>오늘도 건강한 하루 되세요</Text>
           </View>
         </View>

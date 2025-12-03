@@ -28,30 +28,42 @@ export default function MedicationEnvelopeProcessingScreen({
   onFailure, 
   imageUri: propImageUri
 }: MedicationEnvelopeProcessingScreenProps) {
-  // 네비게이션 사용 시도 (NavigationContainer 안에 있을 때만 사용 가능)
-  // App.tsx에서 직접 사용되는 경우를 대비해 안전하게 처리
   let navigation: MedicationEnvelopeProcessingScreenNavigationProp | null = null;
   let route: MedicationEnvelopeProcessingScreenRouteProp | null = null;
   
-  // useNavigation과 useRoute는 Hook이므로 항상 호출해야 하지만, NavigationContainer 밖에서는 에러 발생 가능
-  // 따라서 optional하게 사용하도록 처리
   try {
-    // NavigationContainer가 있는 경우에만 navigation 사용
     navigation = useNavigation<MedicationEnvelopeProcessingScreenNavigationProp>();
     route = useRoute<MedicationEnvelopeProcessingScreenRouteProp>();
   } catch (error: any) {
-    // NavigationContainer 밖에서 렌더링되는 경우 (예: App.tsx에서 직접 사용)
-    // 이 경우 onSuccess/onFailure 콜백을 통해 화면 전환 처리
     navigation = null;
     route = null;
   }
   
-  // route.params에서 imageUri를 가져오거나 props를 사용
   const imageUri = route?.params?.imageUri || propImageUri;
   
-  // 🔥 중복 실행 방지 (useRef로 리렌더링 방지)
   const isProcessingRef = useRef(false);
   const soundRef = useRef<Audio.Sound | null>(null);
+
+  // 배경음악 점진적으로 줄이기 
+  const fadeOutMusic = async () => {
+    if (!soundRef.current) return;
+    try {
+      const duration = 500; // 0.5초 동안 페이드 아웃
+      const steps = 10; // 10단계로 나눔
+      const stepDuration = duration / steps;
+      const volumeStep = 0.5 / steps; // 초기 볼륨 0.5에서 0으로
+
+      for (let i = steps; i >= 0; i--) {
+        const volume = i * volumeStep;
+        await soundRef.current.setVolumeAsync(volume);
+        await new Promise(resolve => setTimeout(resolve, stepDuration));
+      }
+      // 페이드 아웃 완료 후 약간의 대기 (부드러운 종료)
+      await new Promise(resolve => setTimeout(resolve, 100));
+    } catch (error) {
+      console.error('[MedicationEnvelopeProcessingScreen] 페이드 아웃 실패:', error);
+    }
+  };
 
   // 배경음악 재생 (랜덤 선택)
   useEffect(() => {
@@ -113,15 +125,13 @@ export default function MedicationEnvelopeProcessingScreen({
     // 이미 처리 중이면 중복 실행 방지
     if (isProcessingRef.current) return;
     
-    // 약봉투 OCR API 호출 (mode='2')
     const processOCR = async () => {
       if (!imageUri) {
         console.error('❌ 이미지 URI가 없습니다!');
-        // 배경음악 종료
         if (soundRef.current) {
-          console.log('[MedicationEnvelopeProcessingScreen] 이미지 URI 없음 - 배경음악 종료');
+          console.log('[MedicationEnvelopeProcessingScreen] 이미지 URI 없음 - 배경음악 페이드 아웃');
           try {
-            await soundRef.current.stopAsync();
+            await fadeOutMusic(); // 페이드 아웃 완료 대기
             await soundRef.current.unloadAsync();
             soundRef.current = null;
           } catch (audioError) {
@@ -139,12 +149,10 @@ export default function MedicationEnvelopeProcessingScreen({
       }
 
       try {
-        // 🔥 이미지 업로드 (medicationApi에서 ImageManipulator로 리사이징 및 JPEG 변환 처리)
         console.log('=== 📤 약봉투 업로드 시작 ===');
         console.log('Image URI:', imageUri);
         console.log('(medicationApi에서 가로 1024px로 리사이징 및 JPEG 변환 처리됨)');
         
-        // 백엔드 모드: "2" (약봉투)
         const backendMode = '2';
         console.log('백엔드 모드:', backendMode, '(약봉투)');
         isProcessingRef.current = true;
@@ -155,25 +163,22 @@ export default function MedicationEnvelopeProcessingScreen({
         console.log('약봉투 OCR 응답:', response);
         
         if (response.header?.resultCode === 1000) {
-          // 배경음악 종료 (다음 화면으로 이동하기 전)
           if (soundRef.current) {
-            console.log('[MedicationEnvelopeProcessingScreen] 성공 - 배경음악 종료');
-            await soundRef.current.stopAsync();
+            console.log('[MedicationEnvelopeProcessingScreen] 성공 - 배경음악 페이드 아웃');
+            await fadeOutMusic(); // 페이드 아웃 완료 대기
+            // 페이드 아웃이 완료되면 볼륨이 0이므로 stopAsync는 생략하고 바로 unload
             await soundRef.current.unloadAsync();
             soundRef.current = null;
           }
           
-          // 응답에서 umno 추출
           const umno = response.body?.umno;
           
           if (umno) {
-            // 복약 상세 정보 조회 (taken, comb 정보 가져오기)
             try {
               const detailResponse = await getMedicationDetail(umno);
               if (detailResponse.header?.resultCode === 1000 && detailResponse.body) {
                 const { taken, comb } = detailResponse.body;
                 
-                // 복약 시간대 선택 화면으로 이동
                 if (navigation) {
                   navigation.navigate('PrescriptionIntakeTimeSelect', {
                     umno: umno,
@@ -182,7 +187,6 @@ export default function MedicationEnvelopeProcessingScreen({
                     source: 'medicationEnvelope',
                   });
                 } else {
-                  // App.tsx에서 사용되는 경우 콜백에 umno, taken, comb 전달
                   onSuccess?.(umno, taken, comb || '');
                 }
               } else {
@@ -190,7 +194,6 @@ export default function MedicationEnvelopeProcessingScreen({
               }
             } catch (detailError: any) {
               console.error('복약 상세 정보 조회 실패:', detailError);
-              // 상세 정보 조회 실패 시에도 복약 시간 선택 화면으로 이동 (taken, comb 없이)
               if (navigation) {
                 navigation.navigate('PrescriptionIntakeTimeSelect', {
                   umno: umno,
@@ -199,12 +202,10 @@ export default function MedicationEnvelopeProcessingScreen({
                   source: 'medicationEnvelope',
                 });
               } else {
-                // App.tsx에서 사용되는 경우 콜백 호출 (taken, comb 없이)
                 onSuccess?.(umno, undefined, '');
               }
             }
           } else {
-            // umno가 없으면 콜백 호출
             onSuccess?.();
           }
         } else {
@@ -212,11 +213,10 @@ export default function MedicationEnvelopeProcessingScreen({
           throw new Error(errorMsg);
         }
       } catch (error: any) {
-        // 에러 발생 시 배경음악 종료
         if (soundRef.current) {
-          console.log('[MedicationEnvelopeProcessingScreen] 에러 발생 - 배경음악 종료');
+          console.log('[MedicationEnvelopeProcessingScreen] 에러 발생 - 배경음악 페이드 아웃');
           try {
-            await soundRef.current.stopAsync();
+            await fadeOutMusic(); // 페이드 아웃 완료 대기
             await soundRef.current.unloadAsync();
             soundRef.current = null;
           } catch (audioError) {
@@ -235,7 +235,6 @@ export default function MedicationEnvelopeProcessingScreen({
           console.error('요청은 보냈지만 응답을 받지 못함');
         }
         
-        // 에러 메시지 추출
         let errorMessage = '약봉투 분석 중 오류가 발생했습니다.';
         if (error.response?.data?.header?.resultMsg) {
           errorMessage = error.response.data.header.resultMsg;
@@ -252,7 +251,6 @@ export default function MedicationEnvelopeProcessingScreen({
             {
               text: '확인',
               onPress: () => {
-                // 실패 시 Capture 화면으로 돌아가기
                 if (onFailure) {
                   onFailure();
                 } else if (navigation) {
@@ -315,6 +313,8 @@ const styles = StyleSheet.create({
     lineHeight: responsive(28.8),
   },
 });
+
+
 
 
 

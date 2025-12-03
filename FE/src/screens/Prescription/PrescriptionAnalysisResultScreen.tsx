@@ -19,6 +19,7 @@ import responsive from '../../utils/responsive';
 import { getMedicationDetail, updateMedicationCategory, MedicationDetailResponse } from '../../api/medicationApi';
 import { RootStackParamList } from '../../navigation/Router';
 import { getMedicineImageSource } from '../../utils/medicineImageMap';
+import { playSequentialAudio, stopAudio } from '../../utils/ttsPlayer';
 
 type PrescriptionAnalysisResultScreenRouteProp = RouteProp<RootStackParamList, 'PrescriptionAnalysisResult'>;
 type PrescriptionAnalysisResultScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'PrescriptionAnalysisResult'>;
@@ -31,6 +32,7 @@ interface Medicine {
   image?: string;
   description?: string;
   information?: string;
+  audioUrl?: string; // TTS 오디오 URL 추가
   warning?: {
     title: string;
     items: string[];
@@ -156,6 +158,7 @@ export default function PrescriptionAnalysisResultScreen({
                 image: med.image,
                 description: med.description,
                 information: med.information,
+                audioUrl: med.audioUrl, // TTS 오디오 URL 추가
                 materials: materials,
                 warning: warning,
               };
@@ -172,8 +175,45 @@ export default function PrescriptionAnalysisResultScreen({
     loadMedicationDetail();
   }, [umno]);
 
+  // TTS 재생 - 화면이 준비되고 데이터가 로드되면 모든 약품의 TTS를 순차적으로 재생
+  useEffect(() => {
+    if (!isLoading && prescriptionData && prescriptionData.medicines.length > 0) {
+      const audioUrls = prescriptionData.medicines
+        .map(med => med.audioUrl)
+        .filter((url): url is string => !!url); // null/undefined 제거
+
+      if (audioUrls.length > 0) {
+        console.log(`[PrescriptionAnalysisResultScreen] ${audioUrls.length}개의 약품 TTS 순차 재생 시작`);
+        playSequentialAudio(audioUrls)
+          .then(() => {
+            console.log('[PrescriptionAnalysisResultScreen] 모든 약품 TTS 재생 완료');
+          })
+          .catch((error) => {
+            console.error('[PrescriptionAnalysisResultScreen] TTS 순차 재생 실패:', error);
+          });
+      }
+    }
+
+    // 화면을 벗어나면 TTS 종료 (useEffect cleanup)
+    return () => {
+      console.log('[PrescriptionAnalysisResultScreen] useEffect cleanup - TTS 종료');
+      stopAudio();
+    };
+  }, [isLoading, prescriptionData]);
+
+  // 컴포넌트 언마운트 시 TTS 종료 (추가 안전장치)
+  useEffect(() => {
+    return () => {
+      console.log('[PrescriptionAnalysisResultScreen] 컴포넌트 언마운트 - TTS 종료');
+      stopAudio();
+    };
+  }, []);
+
 
   const handleGoHome = () => {
+    // 홈으로 이동 시 TTS 종료
+    console.log('[PrescriptionAnalysisResultScreen] 홈으로 이동 - TTS 종료');
+    stopAudio();
     onGoHome?.();
   };
 
