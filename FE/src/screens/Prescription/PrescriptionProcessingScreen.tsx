@@ -31,18 +31,14 @@ export default function PrescriptionProcessingScreen({
   mode: propMode,
   imageUri: propImageUri
 }: PrescriptionProcessingScreenProps) {
-  // 네비게이션 사용 시도 (NavigationContainer 안에 있을 때만 사용 가능)
-  // App.tsx에서 직접 사용되는 경우를 대비해 안전하게 처리
+
   let navigation: PrescriptionProcessingScreenNavigationProp | null = null;
   let route: PrescriptionProcessingScreenRouteProp | null = null;
   
-  // useNavigation과 useRoute는 Hook이므로 항상 호출해야 하지만, NavigationContainer 밖에서는 에러 발생 가능
   try {
     navigation = useNavigation<PrescriptionProcessingScreenNavigationProp>();
     route = useRoute<PrescriptionProcessingScreenRouteProp>();
   } catch (error: any) {
-    // NavigationContainer 밖에서 렌더링되는 경우 (예: App.tsx에서 직접 사용)
-    // 이 경우 onSuccess/onFailure 콜백을 통해 화면 전환 처리
     navigation = null;
     route = null;
   }
@@ -51,11 +47,10 @@ export default function PrescriptionProcessingScreen({
   const imageUri = route?.params?.imageUri || propImageUri;
   const mode = route?.params?.mode || propMode || 'prescription';
   
-  // 🔥 중복 실행 방지 (useRef로 리렌더링 방지)
   const isProcessingRef = useRef(false);
   const soundRef = useRef<Audio.Sound | null>(null);
 
-  // 배경음악 점진적으로 줄이기 (Fade Out)
+  // 배경음악 점진적으로 줄이기
   const fadeOutMusic = async () => {
     if (!soundRef.current) return;
     try {
@@ -69,6 +64,8 @@ export default function PrescriptionProcessingScreen({
         await soundRef.current.setVolumeAsync(volume);
         await new Promise(resolve => setTimeout(resolve, stepDuration));
       }
+      // 페이드 아웃 완료 후 약간의 대기 (부드러운 종료)
+      await new Promise(resolve => setTimeout(resolve, 100));
     } catch (error) {
       console.error('[PrescriptionProcessingScreen] 페이드 아웃 실패:', error);
     }
@@ -80,7 +77,6 @@ export default function PrescriptionProcessingScreen({
     
     const playBackgroundMusic = async () => {
       try {
-        // 랜덤하게 music1 또는 music2 선택
         const musicNumber = Math.random() < 0.5 ? 1 : 2;
         const musicSource = musicNumber === 1 
           ? require('../../../assets/music/music1.mp3')
@@ -103,7 +99,7 @@ export default function PrescriptionProcessingScreen({
           { 
             shouldPlay: true,
             isLooping: true, // 반복 재생
-            volume: 0.5, // 볼륨 50%
+            volume: 0.5, 
           }
         );
         
@@ -111,7 +107,6 @@ export default function PrescriptionProcessingScreen({
           soundRef.current = audioSound;
           console.log('[PrescriptionProcessingScreen] 배경음악 재생 성공');
         } else {
-          // 컴포넌트가 언마운트된 경우 즉시 정리
           audioSound.unloadAsync();
         }
       } catch (error) {
@@ -136,7 +131,6 @@ export default function PrescriptionProcessingScreen({
     console.log('mode:', mode);
     console.log('isProcessingRef.current:', isProcessingRef.current);
     
-    // 이미 처리 중이면 중복 실행 방지
     if (isProcessingRef.current) {
       console.log('⚠️ 이미 처리 중이므로 중복 실행 방지');
       return;
@@ -152,8 +146,7 @@ export default function PrescriptionProcessingScreen({
         if (soundRef.current) {
           console.log('[PrescriptionProcessingScreen] 이미지 URI 없음 - 배경음악 페이드 아웃');
           try {
-            await fadeOutMusic();
-            await soundRef.current.stopAsync();
+            await fadeOutMusic(); // 페이드 아웃 완료 대기
             await soundRef.current.unloadAsync();
             soundRef.current = null;
           } catch (audioError) {
@@ -173,14 +166,12 @@ export default function PrescriptionProcessingScreen({
       console.log('✅ imageUri 확인 완료:', imageUri);
 
       try {
-        // 🔥 파일 정보 상세 확인 (이미 medicationApi에서 처리되므로 여기서는 로깅만)
-        // ImageManipulator로 이미 처리된 이미지이므로 FileSystem 확인은 선택적
+
         
         console.log('=== 📤 업로드 시작 ===');
         console.log('Image URI:', imageUri);
         console.log('(medicationApi에서 가로 1024px로 리사이징 및 JPEG 변환 처리됨)');
         
-        // 백엔드 모드: "1" (처방전), "2" (약봉투)
         const backendMode = mode === 'prescription' ? '1' : '2';
         console.log('=== 🎯 업로드 준비 ===');
         console.log('백엔드 모드:', backendMode, `(${mode})`);
@@ -202,11 +193,10 @@ export default function PrescriptionProcessingScreen({
         console.log('응답 resultCode:', response?.header?.resultCode);
         
         if (response.header?.resultCode === 1000) {
-          // 배경음악 종료 (다음 화면으로 이동하기 전)
           if (soundRef.current) {
             console.log('[PrescriptionProcessingScreen] 성공 - 배경음악 페이드 아웃');
-            await fadeOutMusic();
-            await soundRef.current.stopAsync();
+            await fadeOutMusic(); // 페이드 아웃 완료 대기
+            // 페이드 아웃이 완료되면 볼륨이 0이므로 stopAsync는 생략하고 바로 unload
             await soundRef.current.unloadAsync();
             soundRef.current = null;
           }
@@ -235,7 +225,6 @@ export default function PrescriptionProcessingScreen({
                     source: source,
                   });
                 } else {
-                  // App.tsx에서 사용되는 경우 콜백에 umno, taken, comb 전달
                   onSuccess?.(umno, taken, comb || '');
                 }
               } else {
@@ -271,8 +260,7 @@ export default function PrescriptionProcessingScreen({
         if (soundRef.current) {
           console.log('[PrescriptionProcessingScreen] 에러 발생 - 배경음악 페이드 아웃');
           try {
-            await fadeOutMusic();
-            await soundRef.current.stopAsync();
+            await fadeOutMusic(); // 페이드 아웃 완료 대기
             await soundRef.current.unloadAsync();
             soundRef.current = null;
           } catch (audioError) {
@@ -308,7 +296,6 @@ export default function PrescriptionProcessingScreen({
             {
               text: '확인',
               onPress: () => {
-                // 실패 시 Capture 화면으로 돌아가기
                 if (onFailure) {
                   onFailure();
                 } else if (navigation) {
