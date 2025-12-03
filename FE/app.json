@@ -31,7 +31,8 @@
         "POST_NOTIFICATIONS",
         "WAKE_LOCK",
         "FOREGROUND_SERVICE",
-        "USE_FULL_SCREEN_INTENT"
+        "USE_FULL_SCREEN_INTENT",
+        "SCHEDULE_EXACT_ALARM"
       ]
     },
     "web": {
@@ -43,7 +44,7 @@
     "extra": {
       "eas": {
         "projectId": "e1978ac7-7d67-45fa-bf17-72f7e988c73e"
-        }
+      }
     }
   }
 }

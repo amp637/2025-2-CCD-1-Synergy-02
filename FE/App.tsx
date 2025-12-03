@@ -3,10 +3,11 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform } from '
 import * as SplashScreenExpo from 'expo-splash-screen';
 import { Asset } from 'expo-asset';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import * as Notifications from 'expo-notifications';
-import notifee, { EventType, AndroidImportance, AndroidCategory } from '@notifee/react-native';
+import notifee, { EventType, AndroidImportance, AndroidCategory, AndroidVisibility } from '@notifee/react-native';
 import { getUserMedications } from './src/api/userApi';
 import { useAuthStore } from './src/stores/authStore';
+import messaging from '@react-native-firebase/messaging';
+import { scheduleDailyEvents } from './src/push/backgroundHandler';
 
 // FCM 백그라운드 메시지 핸들러 등록 (앱 시작 시 자동 실행)
 import './src/push/backgroundHandler';
@@ -222,29 +223,119 @@ export default function App() {
   const [prescriptionComb, setPrescriptionComb] = useState<string | undefined>(undefined); // 복약 시간대 조합
   const [currentEventEno, setCurrentEventEno] = useState<number | null>(null); // 현재 이벤트 번호
   const [currentEventUmno, setCurrentEventUmno] = useState<number | null>(null); // 현재 이벤트의 umno
+  const [currentEventDetail, setCurrentEventDetail] = useState<any>(null); // 퀴즈 상세 데이터
 
   useEffect(() => {
     async function loadResourcesAndDataAsync() {
       try {
-        // FCM 토큰 초기화 (앱 시작 시 저장된 토큰 복원)
+        // 권한 요청
+        await notifee.requestPermission();
+        
+        // 알림 채널 생성 (필수)
+        await notifee.createChannel({
+          id: 'medicine-alarm',
+          name: 'Medicine Alarm',
+          importance: AndroidImportance.HIGH,
+          visibility: AndroidVisibility.PUBLIC,
+          sound: 'default',
+          vibration: true,
+          vibrationPattern: [1, 250, 250, 250],
+        });
+
         await initializeFcmToken();
         
-        // 모든 이미지 미리 로드 (런타임 준비 후에만 require() 실행)
         const imageAssets = getImageAssets();
         const imageAssetPromises = cacheImages(imageAssets);
         await Promise.all([...imageAssetPromises]);
         
-        console.log('All assets loaded successfully');
       } catch (e) {
         console.warn('Error loading assets:', e);
       } finally {
-        // 모든 리소스 로딩 완료
         setAppIsReady(true);
       }
     }
 
     loadResourcesAndDataAsync();
   }, []);
+
+  // 4. 알림 라우팅 핸들러 (데이터 파싱 포함)
+  const handleNotificationRoute = useCallback((route: string, data?: Record<string, any>) => {
+    console.log('[App] 알림 클릭 - 라우팅:', route, '데이터:', data);
+    
+    if (route === 'IntakeAlarmQuizScreen') {
+      if (data?.eno) setCurrentEventEno(Number(data.eno));
+      if (data?.umno) setCurrentEventUmno(Number(data.umno));
+      
+      // ⭐️ eventDetail 파싱하여 State에 저장
+      if (data?.eventDetail) {
+        try {
+          const detailObj = typeof data.eventDetail === 'string' 
+            ? JSON.parse(data.eventDetail) 
+            : data.eventDetail;
+          setCurrentEventDetail(detailObj);
+        } catch (e) {
+          console.error('[App] eventDetail 파싱 실패:', e);
+          setCurrentEventDetail(null);
+        }
+      } else {
+        setCurrentEventDetail(null);
+      }
+
+      setQuizWrongCount(0);
+      setCurrentScreen('IntakeAlarmQuizScreen');
+    }
+  }, []);
+
+  // 5. [풀스크린/초기실행] 알림으로 앱이 켜졌을 때 처리
+  useEffect(() => {
+    const checkInitialNotification = async () => {
+      const initialNotification = await notifee.getInitialNotification();
+      if (initialNotification) {
+        console.log('[App] 앱이 알림으로 실행됨:', initialNotification);
+        const data = initialNotification.notification.data;
+        if (data?.route === 'IntakeAlarmQuizScreen') {
+          setTimeout(() => {
+            handleNotificationRoute('IntakeAlarmQuizScreen', data);
+          }, 1000);
+        }
+      }
+    };
+    checkInitialNotification();
+  }, [handleNotificationRoute]);
+
+  // 6. [포그라운드] 앱 사용 중 FCM 수신 처리
+  useEffect(() => {
+    const unsubscribe = messaging().onMessage(async remoteMessage => {
+       console.log('[Foreground] FCM 수신:', remoteMessage);
+       const data = remoteMessage.data;
+       if (data && data.eventData) {
+         try {
+           const eventString = data.eventData as string;
+           const eventObj = JSON.parse(eventString);
+           console.log('이벤트 리스트 개수:', eventObj.events ? eventObj.events.length : '없음');
+           await scheduleDailyEvents(eventObj.events);
+           console.log('[Foreground] 알림 예약 갱신 완료');
+         } catch (e) {
+           console.error('[Foreground] 데이터 처리 실패:', e);
+         }
+       }
+    });
+    return unsubscribe;
+  }, []);
+
+  // 7. [포그라운드] 알림 클릭 처리
+  useEffect(() => {
+    if (!appIsReady) return;
+    const unsubscribeForeground = notifee.onForegroundEvent(({ type, detail }) => {
+      if (type === EventType.PRESS || type === EventType.ACTION_PRESS) {
+        const route = detail.notification?.data?.route;
+        if (route && typeof route === 'string') {
+          handleNotificationRoute(route, detail.notification?.data as Record<string, any>);
+        }
+      }
+    });
+    return unsubscribeForeground;
+  }, [appIsReady, handleNotificationRoute]);
 
   // Home 화면으로 이동할 때 복약 목록 로드
   useEffect(() => {
@@ -291,123 +382,6 @@ export default function App() {
       setCurrentEventUmno(null);
     }
   }, [currentScreen, quizWrongCount]);
-
-  // 알림 클릭 시 라우팅 처리 함수
-  const handleNotificationRoute = useCallback((route: string, data?: Record<string, any>) => {
-    console.log('[App] 알림 클릭 - 라우팅:', route, '데이터:', data);
-    
-    if (route === 'IntakeAlarmQuizScreen') {
-      // 알림 데이터에서 eno, umno 추출
-      if (data?.eno !== undefined) {
-        const enoValue = typeof data.eno === 'string' ? Number(data.eno) : data.eno;
-        setCurrentEventEno(typeof enoValue === 'number' ? enoValue : null);
-      }
-      if (data?.umno !== undefined) {
-        const umnoValue = typeof data.umno === 'string' ? Number(data.umno) : data.umno;
-        setCurrentEventUmno(typeof umnoValue === 'number' ? umnoValue : null);
-      }
-      setQuizWrongCount(0); // 퀴즈 오답 횟수 초기화
-      setCurrentScreen('IntakeAlarmQuizScreen');
-    }
-  }, []);
-
-  // Notifee 및 Expo Notifications 리스너 설정
-  useEffect(() => {
-    if (!appIsReady) return;
-
-    console.log('[App] 알림 리스너 설정 시작...');
-
-    // 1. Notifee 포그라운드 이벤트 리스너
-    const unsubscribeForeground = notifee.onForegroundEvent(({ type, detail }) => {
-      console.log('[App] Notifee 포그라운드 이벤트:', type, detail);
-      
-      if (type === EventType.PRESS || type === EventType.ACTION_PRESS) {
-        const route = detail.notification?.data?.route;
-        if (route && typeof route === 'string') {
-          handleNotificationRoute(route, detail.notification?.data as Record<string, any>);
-        }
-      }
-    });
-
-    // 2. Expo Notifications 리스너 (알림 클릭 시)
-    const notificationResponseSubscription = Notifications.addNotificationResponseReceivedListener(
-      (response) => {
-        console.log('[App] Expo 알림 클릭:', response);
-        const route = response.notification.request.content.data?.route;
-        if (route && typeof route === 'string') {
-          handleNotificationRoute(route, response.notification.request.content.data as Record<string, any>);
-        }
-      }
-    );
-
-    // 3. Expo Notifications 포그라운드 알림 리스너 (알림이 발생했을 때 Notifee로 풀스크린 알림 표시)
-    const notificationReceivedSubscription = Notifications.addNotificationReceivedListener(
-      async (notification) => {
-        console.log('[App] Expo 알림 수신:', notification);
-        
-        // Notifee로 풀스크린 알림 표시
-        try {
-          // Notifee 알림 채널 생성 (이미 생성되어 있어도 안전)
-          await notifee.createChannel({
-            id: 'alarm',
-            name: 'Medicine Alarm',
-            importance: AndroidImportance.HIGH,
-            sound: 'default',
-            vibration: true,
-            vibrationPattern: [0, 250, 250, 250],
-          });
-
-          const notificationData = notification.request.content.data as Record<string, any> | undefined;
-          const typeValue = notificationData?.type;
-          const typeLabel = typeValue === 'breakfast' ? '아침' :
-                           typeValue === 'lunch' ? '점심' :
-                           typeValue === 'dinner' ? '저녁' :
-                           typeValue === 'bedtime' ? '취침' : '복약';
-
-          // Notifee로 풀스크린 알림 표시
-          await notifee.displayNotification({
-            title: '약 드실 시간입니다!',
-            body: `${typeLabel} 복약 시간이에요! 터치하면 복약 퀴즈 화면으로 이동합니다.`,
-            android: {
-              channelId: 'alarm',
-              // ⭐ 핵심: 풀스크린 인텐트
-              fullScreenAction: {
-                id: 'default',
-                launchActivity: 'default',
-              },
-              category: AndroidCategory.ALARM,
-              pressAction: {
-                id: 'default',
-                launchActivity: 'default',
-              },
-              importance: AndroidImportance.HIGH,
-              sound: 'default',
-              vibrationPattern: [0, 250, 250, 250],
-            },
-            data: {
-              route: 'IntakeAlarmQuizScreen',
-              type: typeValue,
-              utno: notificationData?.utno,
-              tno: notificationData?.tno,
-              eno: notificationData?.eno,
-              umno: notificationData?.umno,
-            },
-          });
-
-          console.log('[App] ✅ Notifee 풀스크린 알림 표시 완료');
-        } catch (error: any) {
-          console.error('[App] ❌ Notifee 풀스크린 알림 표시 실패:', error);
-        }
-      }
-    );
-
-    return () => {
-      console.log('[App] 알림 리스너 해제');
-      unsubscribeForeground();
-      notificationResponseSubscription.remove();
-      notificationReceivedSubscription.remove();
-    };
-  }, [appIsReady, handleNotificationRoute]);
 
   const onLayoutRootView = useCallback(async () => {
     if (appIsReady) {
@@ -493,6 +467,7 @@ export default function App() {
       case 'IntakeAlarmQuizThreeTimesWrongActive': return <IntakeAlarmQuizThreeTimesWrongActiveScreen 
         eno={currentEventEno || undefined}
         umno={currentEventUmno || undefined}
+        eventDetail={currentEventDetail}
         onMedicationTaken={() => {
           // 약 먹었어요 버튼 클릭 → IntakeSideEffectCheckDeactive로 이동
           setCurrentScreen('IntakeSideEffectCheckDeactive');
@@ -500,6 +475,7 @@ export default function App() {
       />;
       case 'IntakeAlarmQuizScreen': return <IntakeAlarmQuizScreen 
           eno={currentEventEno || undefined}
+          eventDetail={currentEventDetail}
           onMedicationTaken={() => {
             // 약 먹었어요 → 오답 횟수 초기화 후 부작용 체크로 이동
             setQuizWrongCount(0);

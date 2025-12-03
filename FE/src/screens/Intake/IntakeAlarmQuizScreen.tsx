@@ -23,9 +23,10 @@ interface IntakeAlarmQuizScreenProps {
   onThreeTimesWrong?: (umno?: number, eno?: number) => void; // umno, eno 전달
   initialWrongCount?: number; // 전화에서 돌아왔을 때 3번 틀린 상태 유지
   eno?: number; // 이벤트 번호
+  eventDetail?: any;
 }
 
-const IntakeAlarmQuizScreen = React.memo(({ onMedicationTaken, onThreeTimesWrong, initialWrongCount = 0, eno }: IntakeAlarmQuizScreenProps) => {
+const IntakeAlarmQuizScreen = React.memo(({ onMedicationTaken, onThreeTimesWrong, initialWrongCount = 0, eno, eventDetail }: IntakeAlarmQuizScreenProps) => {
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isWrong, setIsWrong] = useState(initialWrongCount >= 3);
   const [isCorrect, setIsCorrect] = useState(false);
@@ -45,6 +46,27 @@ const IntakeAlarmQuizScreen = React.memo(({ onMedicationTaken, onThreeTimesWrong
     const loadEventData = async () => {
       try {
         setIsLoading(true);
+
+        if (eventDetail) {
+            console.log('[IntakeAlarmQuizScreen] 알림 데이터 사용:', eventDetail);
+            setEventData(eventDetail);
+
+            if (eventDetail.candidate && eventDetail.candidate.answer) {
+              const answerList = [
+                { id: 'correct', text: eventDetail.candidate.answer },
+                ...(eventDetail.candidate.wrong || []).map((wrong: string, index: number) => ({
+                  id: `wrong_${index}`,
+                  text: wrong,
+                })),
+              ];
+              const shuffled = answerList.sort(() => Math.random() - 0.5);
+              const correctIndex = shuffled.findIndex(a => a.id === 'correct');
+              setAnswers(shuffled);
+              setCorrectAnswerId(correctIndex.toString());
+            }
+            setIsLoading(false);
+            return; 
+        }
         
         const response = await getEvents();
         
@@ -145,7 +167,7 @@ const IntakeAlarmQuizScreen = React.memo(({ onMedicationTaken, onThreeTimesWrong
     };
     
     loadEventData();
-  }, [eno]);
+  }, [eno, eventDetail]);
 
   // 화면 전환 애니메이션 이후에 실행
   useEffect(() => {
