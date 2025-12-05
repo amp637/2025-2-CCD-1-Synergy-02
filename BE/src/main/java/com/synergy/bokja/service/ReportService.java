@@ -84,7 +84,9 @@ public class ReportService {
                     cycle.getStartDate().toString(),
                     cycle.getEndDate().toString()
             );
-        }).collect(Collectors.toList());
+        }).sorted(Comparator.comparing(ReportItemDTO::getStart_date).reversed()
+                .thenComparing(Comparator.comparing(ReportItemDTO::getEnd_date).reversed()))
+                .collect(Collectors.toList());
 
         return new ReportListResponseDTO(reportList);
     }
