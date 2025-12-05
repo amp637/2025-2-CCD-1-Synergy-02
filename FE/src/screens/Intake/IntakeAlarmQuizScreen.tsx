@@ -47,9 +47,19 @@ const IntakeAlarmQuizScreen = React.memo(({ onMedicationTaken, onThreeTimesWrong
       try {
         setIsLoading(true);
 
+        const targetEno = eno || (eventDetail ? Number(eventDetail.eno) : null);
+        let currentEventData: any = null;
+
         if (eventDetail) {
             console.log('[IntakeAlarmQuizScreen] 알림 데이터 사용:', eventDetail);
-            setEventData(eventDetail);
+
+            currentEventData = {
+                ...eventDetail,
+                eno: targetEno,
+                umno: eventDetail.umno || eventDetail.userMedicine?.umno
+            };
+
+            setEventData(currentEventData);
 
             if (eventDetail.candidate && eventDetail.candidate.answer) {
               const answerList = [
@@ -64,102 +74,62 @@ const IntakeAlarmQuizScreen = React.memo(({ onMedicationTaken, onThreeTimesWrong
               setAnswers(shuffled);
               setCorrectAnswerId(correctIndex.toString());
             }
-            setIsLoading(false);
-            return; 
+            
+            if (eventDetail.audioUrl && eventDetail.audioUrl.length > 0) {
+                setIsLoading(false);
+                return; 
+            }
         }
-        
+
+        console.log('[IntakeAlarmQuizScreen] 오디오 및 추가 정보 조회 중...');
         const response = await getEvents();
-        
+
         if (response.header?.resultCode === 1000 && response.body?.events) {
           const events = response.body.events;
-          
-          // eno가 있으면 해당 이벤트를 찾고, 없거나 찾을 수 없으면 첫 번째 이벤트 사용
-          let event = null;
-          if (eno) {
-            // 타입 변환을 고려하여 찾기 (숫자와 문자열 모두 지원)
-            event = events.find((e: any) => {
-              return e.eno === eno || e.eno === Number(eno) || String(e.eno) === String(eno);
-            });
-            if (!event) {
-              // eno가 전달되었지만 찾을 수 없을 때는 첫 번째 이벤트 사용
-              event = events[0];
-            }
-          } else {
-            event = events[0];
-          }
-          
-          if (event) {
-            // candidate가 없으면 에러
-            if (!event.candidate || !event.candidate.answer) {
-              console.error('[IntakeAlarmQuizScreen] 이벤트에 candidate 정보가 없습니다.');
-              Alert.alert(
-                '오류', 
-                '퀴즈 정보가 불완전합니다.\n백엔드에서 이벤트 데이터를 확인해주세요.'
-              );
-              return;
-            }
-            
-            setEventData(event);
-            
-            // 답변 목록 생성 (정답 + 오답들)
-            const answerList = [
-              { id: 'correct', text: event.candidate.answer },
-              ...(event.candidate.wrong || []).map((wrong: string, index: number) => ({
-                id: `wrong_${index}`,
-                text: wrong,
-              })),
-            ];
-            
-            // 답변 순서 섞기
-            const shuffled = answerList.sort(() => Math.random() - 0.5);
-            const correctIndex = shuffled.findIndex(a => a.id === 'correct');
-            
-            if (correctIndex === -1) {
-              console.error('[IntakeAlarmQuizScreen] 정답을 찾을 수 없습니다.');
-              Alert.alert('오류', '퀴즈 정답 정보를 찾을 수 없습니다.');
-              return;
-            }
-            
-            setAnswers(shuffled);
-            setCorrectAnswerId(correctIndex.toString());
-          } else {
-            console.warn('[IntakeAlarmQuizScreen] 이벤트를 찾을 수 없습니다.');
-            Alert.alert(
-              '알림', 
-              eno 
-                ? `이벤트(ENO: ${eno})를 찾을 수 없습니다.` 
-                : '오늘의 퀴즈가 없습니다.'
+
+          let foundEvent = null;
+          if (targetEno) {
+            foundEvent = events.find((e: any) => 
+              e.eno === targetEno || e.eno === Number(targetEno) || String(e.eno) === String(targetEno)
             );
           }
-        } else {
-          console.error('[IntakeAlarmQuizScreen] ⚠️ API 응답이 성공이 아니거나 이벤트가 없습니다.');
-          Alert.alert(
-            '알림', 
-            response.header?.resultMsg || '오늘의 퀴즈가 없습니다.'
-          );
+
+          if (!foundEvent && !currentEventData) {
+             foundEvent = events[0];
+          }
+          if (foundEvent) {
+            // 데이터 병합 
+            if (currentEventData) {
+                console.log('[IntakeAlarmQuizScreen] API에서 Audio URL 확보 완료');
+                setEventData((prev: any) => ({
+                    ...prev,
+                    audioUrl: foundEvent.audioUrl || prev.audioUrl, // 오디오 채워넣기
+                }));
+            } else {
+                // eventDetail이 아예 없었던 경우 (일반 진입) -> 전체 세팅
+                setEventData(foundEvent);
+                
+                if (foundEvent.candidate && foundEvent.candidate.answer) {
+                    const answerList = [
+                        { id: 'correct', text: foundEvent.candidate.answer },
+                        ...(foundEvent.candidate.wrong || []).map((wrong: string, index: number) => ({
+                        id: `wrong_${index}`,
+                        text: wrong,
+                        })),
+                    ];
+                    const shuffled = answerList.sort(() => Math.random() - 0.5);
+                    const correctIndex = shuffled.findIndex(a => a.id === 'correct');
+                    setAnswers(shuffled);
+                    setCorrectAnswerId(correctIndex.toString());
+                }
+            }
+          }
         }
       } catch (error: any) {
-        console.error('=== [IntakeAlarmQuizScreen] 이벤트 데이터 로드 실패 ===');
-        console.error('에러 타입:', error.constructor.name);
-        console.error('에러 메시지:', error.message);
-        
-        if (error.response) {
-          console.error('응답 상태:', error.response.status);
-          console.error('응답 데이터:', JSON.stringify(error.response.data, null, 2));
-          
-          if (error.response.status === 500) {
-            Alert.alert(
-              '서버 오류', 
-              '백엔드에서 500 에러가 발생했습니다.\n\n백엔드 로그를 확인해주세요.\n\n에러 경로: /users/me/events'
-            );
-          } else {
-            Alert.alert(
-              '오류', 
-              `퀴즈 정보를 불러오는데 실패했습니다.\n\n에러 코드: ${error.response.status}`
-            );
-          }
-        } else {
-          Alert.alert('오류', '퀴즈 정보를 불러오는데 실패했습니다.');
+        console.error('이벤트 데이터 로드 실패:', error);
+        // API 실패해도 eventDetail이 있으면 화면은 유지되므로 안심
+        if (!eventDetail) {
+            Alert.alert('오류', '정보를 불러오는데 실패했습니다.');
         }
       } finally {
         setIsLoading(false);

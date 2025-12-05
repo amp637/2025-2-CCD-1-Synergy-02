@@ -45,38 +45,72 @@ const IntakeAlarmQuizThreeTimesWrongActiveScreen = React.memo(({
       try {
         setIsLoading(true);
 
+        const targetEno = eno || (eventDetail ? Number(eventDetail.eno) : null);
+        let currentEventData: any = null;
+
         if (eventDetail) {
-            console.log('[IntakeAlarmQuizThreeTimesWrongActiveScreen] 알림 데이터 사용:', eventDetail);
-            setEventData(eventDetail);
-            setCorrectAnswer(eventDetail.candidate?.answer || '');
-            setIsLoading(false);
-            return; 
+            console.log('[IntakeAlarmQuizScreen] 알림 데이터 사용:', eventDetail);
+
+            currentEventData = {
+                ...eventDetail,
+                eno: targetEno,
+                umno: eventDetail.umno || eventDetail.userMedicine?.umno
+            };
+
+            setEventData(currentEventData);
+
+            if (eventDetail.candidate && eventDetail.candidate.answer) {
+             setEventData(eventDetail);
+             setCorrectAnswer(eventDetail.candidate?.answer || '');
+            }
+            
+            if (eventDetail.audioUrl && eventDetail.audioUrl.length > 0) {
+                setIsLoading(false);
+                return; 
+            }
         }
 
+        console.log('[IntakeAlarmQuizScreen] 오디오 및 추가 정보 조회 중...');
         const response = await getEvents();
+
         if (response.header?.resultCode === 1000 && response.body?.events) {
           const events = response.body.events;
-          let event = null;
-          // eno가 있으면 해당 이벤트를 찾고, 없으면 첫 번째 이벤트 사용
-          if (eno) {
-            event = events.find((e: any) => 
-              e.eno === eno || e.eno === Number(eno) || String(e.eno) === String(eno)
+
+          let foundEvent = null;
+          if (targetEno) {
+            foundEvent = events.find((e: any) => 
+              e.eno === targetEno || e.eno === Number(targetEno) || String(e.eno) === String(targetEno)
             );
-            if (!event) event = events[0];
-          } else {
-            event = events[0];
           }
-          
-          if (event) {
-            setEventData(event);
-            setCorrectAnswer(event.candidate?.answer || '');
-          } else {
-             Alert.alert('알림', '이벤트 정보를 찾을 수 없습니다.');
+
+          if (!foundEvent && !currentEventData) {
+             foundEvent = events[0];
+          }
+          if (foundEvent) {
+            // 데이터 병합 
+            if (currentEventData) {
+                console.log('[IntakeAlarmQuizScreen] API에서 Audio URL 확보 완료');
+                setEventData((prev: any) => ({
+                    ...prev,
+                    audioUrl: foundEvent.audioUrl || prev.audioUrl, // 오디오 채워넣기
+                }));
+            } else {
+                // eventDetail이 아예 없었던 경우 (일반 진입) -> 전체 세팅
+                setEventData(foundEvent);
+                
+                if (foundEvent.candidate && foundEvent.candidate.answer) {
+                    setEventData(foundEvent);
+                    setCorrectAnswer(foundEvent.candidate?.answer || '');
+                }
+            }
           }
         }
       } catch (error: any) {
         console.error('이벤트 데이터 로드 실패:', error);
-        Alert.alert('오류', '퀴즈 정보를 불러오는데 실패했습니다.');
+        // API 실패해도 eventDetail이 있으면 화면은 유지되므로 안심
+        if (!eventDetail) {
+            Alert.alert('오류', '정보를 불러오는데 실패했습니다.');
+        }
       } finally {
         setIsLoading(false);
       }
