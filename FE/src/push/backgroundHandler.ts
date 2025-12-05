@@ -50,8 +50,10 @@ export const scheduleDailyEvents = async (events: any[]) => {
             route: 'IntakeAlarmQuizScreen',
             eno: event.eno.toString(),
             umno: event.umno.toString(),
-            // ⭐️ 중요: 퀴즈 화면 표시에 필요한 모든 정보를 JSON 문자열로 담음
+            // 퀴즈 화면 표시에 필요한 모든 정보를 JSON 문자열로 담음
             eventDetail: JSON.stringify({
+               eno: event.eno.toString(),
+               umno: event.umno.toString(),
                question: event.question,
                candidate: event.candidate,
                description: event.description,

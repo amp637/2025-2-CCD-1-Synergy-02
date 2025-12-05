@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, AppState, AppStateStatus } from 'react-native';
 import * as SplashScreenExpo from 'expo-splash-screen';
 import { Asset } from 'expo-asset';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -266,7 +266,7 @@ export default function App() {
       if (data?.eno) setCurrentEventEno(Number(data.eno));
       if (data?.umno) setCurrentEventUmno(Number(data.umno));
       
-      // ⭐️ eventDetail 파싱하여 State에 저장
+      // eventDetail 파싱하여 State에 저장
       if (data?.eventDetail) {
         try {
           const detailObj = typeof data.eventDetail === 'string' 
@@ -286,21 +286,38 @@ export default function App() {
     }
   }, []);
 
-  // 5. [풀스크린/초기실행] 알림으로 앱이 켜졌을 때 처리
+  // 5. 초기 실행 및 백그라운드 -> 포그라운드 전환 시 알림 체크
   useEffect(() => {
-    const checkInitialNotification = async () => {
+    
+    // 알림 확인하는 함수 (공통 로직)
+    const checkNotification = async () => {
       const initialNotification = await notifee.getInitialNotification();
+      
       if (initialNotification) {
-        console.log('[App] 앱이 알림으로 실행됨:', initialNotification);
+        console.log('[App] 알림 데이터 발견:', initialNotification);
         const data = initialNotification.notification.data;
+        
         if (data?.route === 'IntakeAlarmQuizScreen') {
-          setTimeout(() => {
-            handleNotificationRoute('IntakeAlarmQuizScreen', data);
-          }, 1000);
+          // 딜레이 없이 바로 이동
+          handleNotificationRoute('IntakeAlarmQuizScreen', data);
         }
       }
     };
-    checkInitialNotification();
+
+    // 1) 앱 처음 켤 때 체크 (Cold Start)
+    checkNotification();
+
+    // 2) 앱이 백그라운드에서 깰 때 체크 (Resume)
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        console.log('[App] 앱이 포그라운드로 전환됨 -> 알림 체크 수행');
+        checkNotification();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
   }, [handleNotificationRoute]);
 
   // 6. [포그라운드] 앱 사용 중 FCM 수신 처리
@@ -326,14 +343,29 @@ export default function App() {
   // 7. [포그라운드] 알림 클릭 처리
   useEffect(() => {
     if (!appIsReady) return;
+
     const unsubscribeForeground = notifee.onForegroundEvent(({ type, detail }) => {
+      const route = detail.notification?.data?.route;
+      const data = detail.notification?.data as Record<string, any>;
+
+      // (1) 알림 클릭 시 이동 
       if (type === EventType.PRESS || type === EventType.ACTION_PRESS) {
-        const route = detail.notification?.data?.route;
         if (route && typeof route === 'string') {
-          handleNotificationRoute(route, detail.notification?.data as Record<string, any>);
+          console.log('[App] 포그라운드 알림 클릭 -> 이동');
+          handleNotificationRoute(route, data);
+        }
+      }
+      
+      // (2) 알림 도착 시 자동 이동
+      if (type === EventType.DELIVERED) {
+        if (route === 'IntakeAlarmQuizScreen') {
+           console.log('[App] 포그라운드 알림 도착 -> 즉시 퀴즈 화면으로 이동');
+           // 배너가 뜨자마자(또는 뜨기도 전에) 화면을 바꿔버림
+           handleNotificationRoute(route, data);
         }
       }
     });
+
     return unsubscribeForeground;
   }, [appIsReady, handleNotificationRoute]);
 
@@ -375,13 +407,13 @@ export default function App() {
   }, [appIsReady, currentScreen]);
 
   // 퀴즈 화면으로 처음 들어올 때 currentEventEno 초기화 (3번 틀려서 전화 화면으로 갔다가 돌아온 경우가 아닐 때)
-  useEffect(() => {
-    if (currentScreen === 'IntakeAlarmQuizScreen' && quizWrongCount === 0) {
-      console.log('[App] 퀴즈 화면 진입 - currentEventEno 초기화');
-      setCurrentEventEno(null);
-      setCurrentEventUmno(null);
-    }
-  }, [currentScreen, quizWrongCount]);
+  // useEffect(() => {
+  //   if (currentScreen === 'IntakeAlarmQuizScreen' && quizWrongCount === 0) {
+  //     console.log('[App] 퀴즈 화면 진입 - currentEventEno 초기화');
+  //     setCurrentEventEno(null);
+  //     setCurrentEventUmno(null);
+  //   }
+  // }, [currentScreen, quizWrongCount]);
 
   const onLayoutRootView = useCallback(async () => {
     if (appIsReady) {
